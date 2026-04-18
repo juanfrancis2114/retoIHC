@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="BusQuito – Sistema informativo de buses urbanos de Quito, Ecuador. Consulta rutas, líneas y tiempos de llegada." />
+  <title>BusQuito – Rutas Urbanas de Quito</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <!-- Leaflet map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+
+<!-- ──────────── HEADER ──────────── -->
+<header class="header" role="banner">
+  <div class="header-inner">
+    <div class="logo" aria-label="BusQuito inicio">
+      <svg class="logo-icon" viewBox="0 0 40 40" aria-hidden="true" focusable="false">
+        <rect width="40" height="40" rx="10" fill="#FF6B2B"/>
+        <rect x="7" y="14" width="26" height="16" rx="4" fill="white"/>
+        <circle cx="13" cy="31" r="3" fill="#1A3A5C"/>
+        <circle cx="27" cy="31" r="3" fill="#1A3A5C"/>
+        <rect x="10" y="9" width="20" height="7" rx="2" fill="white"/>
+        <rect x="9" y="17" width="7" height="5" rx="1" fill="#ADE0FF"/>
+        <rect x="18" y="17" width="7" height="5" rx="1" fill="#ADE0FF"/>
+      </svg>
+      <span class="logo-text">Bus<strong>Quito</strong></span>
+    </div>
+    <nav class="nav" role="navigation" aria-label="Navegación principal">
+      <a href="#selector" class="nav-link active" tabindex="0">Rutas</a>
+      <a href="#about" class="nav-link" tabindex="0">Acerca de</a>
+    </nav>
+    <div class="header-badge" aria-label="Quito, Ecuador">
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="6" stroke="#FF6B2B" stroke-width="1.5" fill="none"/><path d="M7 3v4l2.5 2.5" stroke="#FF6B2B" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+      Quito, EC
+    </div>
+  </div>
+</header>
+
+<!-- ──────────── HERO ──────────── -->
+<section class="hero" aria-labelledby="hero-title">
+  <div class="hero-inner">
+    <div class="hero-text">
+      <span class="hero-tag" role="doc-subtitle">Sistema de transporte urbano</span>
+      <h1 id="hero-title">Encuentra tu bus<br /><em>en segundos</em></h1>
+      <p class="hero-sub">Selecciona tu empresa, línea y parada.<br/>Te mostramos cuándo llega tu bus.</p>
+      <a href="#selector" class="btn-primary" aria-label="Ir al selector de rutas">Consultar rutas →</a>
+    </div>
+    <div class="hero-graphic" aria-hidden="true">
+      <div class="hero-card">
+        <div class="hc-row"><span class="hc-dot orange"></span><span>Empresa CATAR</span></div>
+        <div class="hc-row"><span class="hc-dot blue"></span><span>Línea 113 · Marín-Carcelén</span></div>
+        <div class="hc-row arriving"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" stroke="#27AE60" stroke-width="1.5" fill="none"/><path d="M8 4v4l2 2" stroke="#27AE60" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg> Llega en <strong>5 min</strong></div>
+      </div>
+    </div>
+  </div>
+  <div class="hero-wave" aria-hidden="true">
+    <svg viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,40 C360,80 1080,0 1440,40 L1440,80 L0,80 Z" fill="#F4F6FA"/></svg>
+  </div>
+</section>
+
+<!-- ──────────── STEPPER ──────────── -->
+<section id="selector" class="selector-section" aria-label="Selector de ruta en 3 pasos">
+  <div class="container">
+
+    <!-- Progress bar -->
+    <div class="stepper" role="list" aria-label="Pasos del proceso">
+      <div class="step active" id="step1-indicator" role="listitem" aria-current="step">
+        <div class="step-circle" aria-label="Paso 1: Empresa operadora">1</div>
+        <span class="step-label">Empresa</span>
+      </div>
+      <div class="step-line" aria-hidden="true"></div>
+      <div class="step" id="step2-indicator" role="listitem">
+        <div class="step-circle" aria-label="Paso 2: Línea de bus">2</div>
+        <span class="step-label">Línea</span>
+      </div>
+      <div class="step-line" aria-hidden="true"></div>
+      <div class="step" id="step3-indicator" role="listitem">
+        <div class="step-circle" aria-label="Paso 3: Mapa y parada">3</div>
+        <span class="step-label">Mapa</span>
+      </div>
+    </div>
+
+    <!-- ── STEP 1: Empresa ── -->
+    <div id="step1" class="card step-card">
+      <div class="card-header">
+        <span class="card-icon" aria-hidden="true">🏢</span>
+        <div>
+          <h2 class="card-title">Empresa operadora</h2>
+          <p class="card-hint">Elige la empresa de la ruta que necesitas</p>
+        </div>
+      </div>
+      <div id="empresa-grid" class="chip-grid" role="listbox" aria-label="Selecciona empresa operadora" aria-required="true">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <!-- ── STEP 2: Línea ── -->
+    <div id="step2" class="card step-card hidden" aria-live="polite">
+      <button class="back-btn" id="back-to-step1" aria-label="Volver a seleccionar empresa">← Volver</button>
+      <div class="card-header">
+        <span class="card-icon" aria-hidden="true">🚌</span>
+        <div>
+          <h2 class="card-title">Línea de bus</h2>
+          <p class="card-hint" id="empresa-selected-label">Líneas disponibles de la empresa seleccionada</p>
+        </div>
+      </div>
+      <div id="linea-grid" class="route-grid" role="listbox" aria-label="Selecciona línea de bus" aria-required="true">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <!-- ── STEP 3: Mapa ── -->
+    <div id="step3" class="card step-card hidden" aria-live="polite">
+      <button class="back-btn" id="back-to-step2" aria-label="Volver a seleccionar línea">← Volver</button>
+      <div class="card-header">
+        <span class="card-icon" aria-hidden="true">📍</span>
+        <div>
+          <h2 class="card-title">Selecciona tu parada</h2>
+          <p class="card-hint" id="linea-selected-label">Haz clic en una parada del mapa</p>
+        </div>
+      </div>
+      <div class="map-wrapper">
+        <div id="map" aria-label="Mapa de Quito con paradas de bus" tabindex="0"></div>
+        <!-- Stop info panel -->
+        <div id="stop-panel" class="stop-panel hidden" role="region" aria-live="polite" aria-label="Información de la parada seleccionada">
+          <div class="stop-panel-header">
+            <h3 id="stop-name">Parada seleccionada</h3>
+            <button class="close-panel" id="close-panel" aria-label="Cerrar panel de parada">✕</button>
+          </div>
+          <div class="arrivals" id="arrivals-list">
+            <!-- arrival times populated by JS -->
+          </div>
+          <p class="stop-note" aria-label="Nota sobre los tiempos">⚠ Tiempos aproximados, actualizados al momento.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ──────────── ABOUT ──────────── -->
+<section id="about" class="about-section" aria-labelledby="about-title">
+  <div class="container about-grid">
+    <div>
+      <h2 id="about-title">¿Cómo funciona?</h2>
+      <p>BusQuito es una herramienta informativa del sistema de transporte urbano de Quito. En solo 3 pasos puedes encontrar los tiempos estimados de llegada en cualquier parada.</p>
+    </div>
+    <div class="steps-list" role="list">
+      <div class="about-step" role="listitem">
+        <span class="about-num" aria-label="Paso 1">01</span>
+        <div><strong>Elige empresa</strong><br/>Selecciona la empresa operadora</div>
+      </div>
+      <div class="about-step" role="listitem">
+        <span class="about-num" aria-label="Paso 2">02</span>
+        <div><strong>Elige línea</strong><br/>Selecciona la línea que necesitas</div>
+      </div>
+      <div class="about-step" role="listitem">
+        <span class="about-num" aria-label="Paso 3">03</span>
+        <div><strong>Selecciona parada</strong><br/>Toca el mapa y consulta llegadas</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ──────────── FOOTER ──────────── -->
+<footer class="footer" role="contentinfo">
+  <div class="container footer-inner">
+    <div class="logo" aria-label="BusQuito">
+      <svg class="logo-icon" viewBox="0 0 40 40" aria-hidden="true" focusable="false">
+        <rect width="40" height="40" rx="10" fill="#FF6B2B"/>
+        <rect x="7" y="14" width="26" height="16" rx="4" fill="white"/>
+        <circle cx="13" cy="31" r="3" fill="#1A3A5C"/>
+        <circle cx="27" cy="31" r="3" fill="#1A3A5C"/>
+        <rect x="10" y="9" width="20" height="7" rx="2" fill="white"/>
+        <rect x="9" y="17" width="7" height="5" rx="1" fill="#ADE0FF"/>
+        <rect x="18" y="17" width="7" height="5" rx="1" fill="#ADE0FF"/>
+      </svg>
+      <span class="logo-text">Bus<strong>Quito</strong></span>
+    </div>
+    <p class="footer-note">Información con fines educativos · IHC – PUCE · Los tiempos son aproximados y no representan datos reales del sistema de transporte.</p>
+  </div>
+</footer>
+
+<!-- ──────────── TOAST NOTIFICATION ──────────── -->
+<div id="toast" class="toast hidden" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+</body>
+</html>
