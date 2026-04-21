@@ -253,100 +253,101 @@ const ZONA_CENTER = {
 
 // ─── 3. STATE ──────────────────────────────────────────────
 const state = {
-  zona: null, empresa: null, linea: null, step: 1,
-  map: null, markers: [], polyline: null,
-  activeMarkerEl: null, stopRefreshTimer: null,
+  zona: null,
+  empresa: null,
+  linea: null,
+  step: 1,
+  map: null,
+  markers: [],
+  polyline: null,
+  activeMarkerEl: null,
+  stopRefreshTimer: null,
 };
 
-// ─── 4. INIT ───────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  // Contar empresas por zona
+// ─── 4. UTILS DE TEXTO ─────────────────────────────────────
+function normalizeText(text) {
+  return String(text)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function escapeAttr(str) {
+  return String(str).replace(/"/g, "&quot;");
+}
+
+// ─── 5. INIT ───────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
   Object.entries(ZONAS).forEach(([key, z]) => {
     const el = document.getElementById(`count-${key}`);
     if (el) {
       const n = Object.keys(z.empresas).length;
-      el.textContent = `${n} empresa${n !== 1 ? 's' : ''}`;
+      el.textContent = `${n} empresa${n !== 1 ? "s" : ""}`;
     }
   });
 
-  // Zone card clicks
-  document.querySelectorAll('.zone-card').forEach(card => {
+  document.querySelectorAll(".zone-card").forEach(card => {
     const zone = card.dataset.zone;
-    card.addEventListener('click', () => selectZona(zone));
-    card.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectZona(zone); }
+    card.addEventListener("click", () => selectZona(zone));
+    card.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        selectZona(zone);
+      }
     });
-    card.setAttribute('tabindex', '0');
+    card.setAttribute("tabindex", "0");
   });
 
-  // Back buttons
-  document.getElementById('back1').addEventListener('click', goToStep1);
-  document.getElementById('back2').addEventListener('click', goToStep2);
-  document.getElementById('back3').addEventListener('click', goToStep3);
+  document.getElementById("back1").addEventListener("click", goToStep1);
+  document.getElementById("back2").addEventListener("click", goToStep2);
+  document.getElementById("back3").addEventListener("click", goToStep3);
 
-  // Logo resets
-  document.getElementById('logo-link').addEventListener('click', e => { e.preventDefault(); goToStep1(); });
+  document.getElementById("logo-link").addEventListener("click", e => {
+    e.preventDefault();
+    goToStep1();
+  });
 
-  // Search init
   initSearch();
 
-  // Close search dropdown when clicking outside
-  document.addEventListener('click', e => {
-    const wrapper = document.getElementById('search-wrapper');
+  document.addEventListener("click", e => {
+    const wrapper = document.getElementById("search-wrapper");
     if (wrapper && !wrapper.contains(e.target)) closeDropdown();
   });
 });
 
-// ─── 5. WELCOME MODAL ──────────────────────────────────────
-function chooseSearch() {
-  closeModal();
-  // Focus search input después del cierre
-  setTimeout(() => {
-    const input = document.getElementById('search-input');
-    if (input) input.focus();
-  }, 280);
-}
-
-function chooseZones() {
-  closeModal();
-  setTimeout(() => {
-    document.getElementById('selector').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, 280);
-}
-
-function closeModal() {
-  const overlay = document.getElementById('welcome-modal');
-  if (!overlay) return;
-  overlay.classList.add('closing');
-  setTimeout(() => overlay.remove(), 260);
-}
-
 // ─── 6. SEARCH ─────────────────────────────────────────────
-
-// Construir índice plano de todas las rutas y empresas
 function buildSearchIndex() {
   const index = [];
 
   Object.entries(ZONAS).forEach(([zonaKey, zona]) => {
-    // Empresas
     const empresasAgregadas = new Set();
+
     Object.entries(zona.empresas).forEach(([empKey, rutas]) => {
-      const displayName = empKey.replace(/ \((Norte|Sur|Centro)\)$/, '');
+      const displayName = empKey.replace(/ \((Norte|Sur|Centro)\)$/, "");
+
       if (!empresasAgregadas.has(displayName + zonaKey)) {
         empresasAgregadas.add(displayName + zonaKey);
         index.push({
-          type: 'empresa',
+          type: "empresa",
           zona: zonaKey,
           zonaLabel: zona.label,
           empKey,
           displayName,
-          searchText: (displayName + ' ' + zonaKey + ' ' + zona.label).toLowerCase(),
+          searchText: normalizeText(`${displayName} ${zonaKey} ${zona.label}`),
         });
       }
-      // Rutas
+
       rutas.forEach(r => {
         index.push({
-          type: 'ruta',
+          type: "ruta",
           zona: zonaKey,
           zonaLabel: zona.label,
           empKey,
@@ -354,7 +355,7 @@ function buildSearchIndex() {
           ruta: r.ruta,
           nombre: r.nombre,
           flota: r.flota,
-          searchText: ('línea ' + r.ruta + ' ' + r.nombre + ' ' + displayName + ' ' + zona.label).toLowerCase(),
+          searchText: normalizeText(`linea ${r.ruta} ${r.nombre} ${displayName} ${zona.label}`),
         });
       });
     });
@@ -368,87 +369,102 @@ let searchIndex = null;
 function initSearch() {
   searchIndex = buildSearchIndex();
 
-  const input = document.getElementById('search-input');
-  const clearBtn = document.getElementById('search-clear');
-  const dropdown = document.getElementById('search-dropdown');
+  const input = document.getElementById("search-input");
+  const clearBtn = document.getElementById("search-clear");
+  const dropdown = document.getElementById("search-dropdown");
 
-  input.addEventListener('input', () => {
+  input.addEventListener("input", () => {
     const q = input.value.trim();
-    clearBtn.classList.toggle('hidden', q.length === 0);
-    if (q.length === 0) { closeDropdown(); return; }
-    if (q.length < 1) return;
+    clearBtn.classList.toggle("hidden", q.length === 0);
+
+    if (q.length === 0) {
+      closeDropdown();
+      return;
+    }
+
     renderDropdown(q);
   });
 
-  input.addEventListener('focus', () => {
+  input.addEventListener("focus", () => {
     const q = input.value.trim();
     if (q.length > 0) renderDropdown(q);
   });
 
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { closeDropdown(); input.blur(); }
-    if (e.key === 'ArrowDown') {
+  input.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      closeDropdown();
+      input.blur();
+    }
+
+    if (e.key === "ArrowDown") {
       e.preventDefault();
-      const first = dropdown.querySelector('.search-result-item');
+      const first = dropdown.querySelector(".search-result-item");
       if (first) first.focus();
     }
   });
 
-  clearBtn.addEventListener('click', () => {
-    input.value = '';
-    clearBtn.classList.add('hidden');
+  clearBtn.addEventListener("click", () => {
+    input.value = "";
+    clearBtn.classList.add("hidden");
     closeDropdown();
     input.focus();
   });
 
-  // Keyboard nav dentro del dropdown
-  dropdown.addEventListener('keydown', e => {
-    const items = [...dropdown.querySelectorAll('.search-result-item')];
+  dropdown.addEventListener("keydown", e => {
+    const items = [...dropdown.querySelectorAll(".search-result-item")];
     const idx = items.indexOf(document.activeElement);
-    if (e.key === 'ArrowDown') {
+
+    if (e.key === "ArrowDown") {
       e.preventDefault();
       const next = items[idx + 1];
       if (next) next.focus();
-    } else if (e.key === 'ArrowUp') {
+    } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      if (idx === 0) { input.focus(); }
-      else { const prev = items[idx - 1]; if (prev) prev.focus(); }
-    } else if (e.key === 'Escape') {
-      closeDropdown(); input.focus();
+      if (idx === 0) {
+        input.focus();
+      } else {
+        const prev = items[idx - 1];
+        if (prev) prev.focus();
+      }
+    } else if (e.key === "Escape") {
+      closeDropdown();
+      input.focus();
     }
   });
 }
 
 function renderDropdown(query) {
-  const dropdown = document.getElementById('search-dropdown');
-  const q = query.toLowerCase().trim();
+  const dropdown = document.getElementById("search-dropdown");
+  const q = normalizeText(query.trim());
 
-  const results = searchIndex.filter(item => item.searchText.includes(q)).slice(0, 18);
+  const results = searchIndex
+    .filter(item => item.searchText.includes(q))
+    .slice(0, 18);
 
   if (results.length === 0) {
     dropdown.innerHTML = `<div class="search-empty">Sin resultados para "<strong>${escapeHtml(query)}</strong>"</div>`;
-    dropdown.classList.remove('hidden');
-    document.getElementById('search-input').setAttribute('aria-expanded', 'true');
+    dropdown.classList.remove("hidden");
+    document.getElementById("search-input").setAttribute("aria-expanded", "true");
     return;
   }
 
-  // Separar en grupos: rutas y empresas
-  const rutas = results.filter(r => r.type === 'ruta');
-  const empresas = results.filter(r => r.type === 'empresa');
+  const rutas = results.filter(r => r.type === "ruta");
+  const empresas = results.filter(r => r.type === "empresa");
 
-  let html = '';
+  let html = "";
 
   if (rutas.length > 0) {
     html += `<div class="search-group-label">Líneas de bus</div>`;
     rutas.slice(0, 10).forEach(item => {
       html += `
         <button class="search-result-item" role="option"
-          data-zona="${item.zona}" data-emp="${escapeAttr(item.empKey)}"
+          data-zona="${item.zona}"
+          data-emp="${escapeAttr(item.empKey)}"
           data-ruta='${escapeAttr(JSON.stringify({ ruta: item.ruta, nombre: item.nombre, flota: item.flota }))}'>
           <span class="sri-badge">${item.ruta}</span>
           <span class="sri-info">
-            <span class="sri-name">${highlightMatch(item.nombre, query)}</span>
-            <span class="sri-meta">${highlightMatch(item.displayName, query)}</span>
+            <span class="sri-name">${escapeHtml(item.nombre)}</span>
+            <span class="sri-meta">${escapeHtml(item.displayName)}</span>
           </span>
           <span class="sri-zone ${item.zona}">${item.zonaLabel}</span>
         </button>`;
@@ -461,11 +477,12 @@ function renderDropdown(query) {
       const rutaCount = ZONAS[item.zona].empresas[item.empKey]?.length || 0;
       html += `
         <button class="search-result-item" role="option"
-          data-zona="${item.zona}" data-emp="${escapeAttr(item.empKey)}">
+          data-zona="${item.zona}"
+          data-emp="${escapeAttr(item.empKey)}">
           <span class="sri-badge empresa">EMP</span>
           <span class="sri-info">
-            <span class="sri-name">${highlightMatch(item.displayName, query)}</span>
-            <span class="sri-meta">${rutaCount} línea${rutaCount !== 1 ? 's' : ''}</span>
+            <span class="sri-name">${escapeHtml(item.displayName)}</span>
+            <span class="sri-meta">${rutaCount} línea${rutaCount !== 1 ? "s" : ""}</span>
           </span>
           <span class="sri-zone ${item.zona}">${item.zonaLabel}</span>
         </button>`;
@@ -473,14 +490,16 @@ function renderDropdown(query) {
   }
 
   dropdown.innerHTML = html;
-  dropdown.classList.remove('hidden');
-  document.getElementById('search-input').setAttribute('aria-expanded', 'true');
+  dropdown.classList.remove("hidden");
+  document.getElementById("search-input").setAttribute("aria-expanded", "true");
 
-  // Attach click events
-  dropdown.querySelectorAll('.search-result-item').forEach(btn => {
-    btn.addEventListener('click', () => handleSearchSelect(btn));
-    btn.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSearchSelect(btn); }
+  dropdown.querySelectorAll(".search-result-item").forEach(btn => {
+    btn.addEventListener("click", () => handleSearchSelect(btn));
+    btn.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        handleSearchSelect(btn);
+      }
     });
   });
 }
@@ -491,24 +510,22 @@ function handleSearchSelect(btn) {
   const rutaRaw = btn.dataset.ruta;
 
   closeDropdown();
-  document.getElementById('search-input').value = '';
-  document.getElementById('search-clear').classList.add('hidden');
+  document.getElementById("search-input").value = "";
+  document.getElementById("search-clear").classList.add("hidden");
 
   if (rutaRaw) {
-    // Ir directo a la línea
     const r = JSON.parse(rutaRaw);
     state.zona = zona;
     state.empresa = empKey;
     state.linea = r;
-    document.getElementById('linea-selected-label').textContent = `Línea ${r.ruta} · ${r.nombre}`;
+    document.getElementById("linea-selected-label").textContent = `Línea ${r.ruta} · ${r.nombre}`;
     showStep(4);
     showToast(`Línea ${r.ruta} · ${r.nombre}`);
     requestAnimationFrame(() => setTimeout(initMap, 80));
   } else {
-    // Ir a paso 3 (líneas de la empresa)
     state.zona = zona;
     state.empresa = empKey;
-    const displayName = empKey.replace(/ \((Norte|Sur|Centro)\)$/, '');
+    const displayName = empKey.replace(/ \((Norte|Sur|Centro)\)$/, "");
     renderLineas(empKey, displayName);
     showStep(3);
     showToast(displayName);
@@ -516,28 +533,14 @@ function handleSearchSelect(btn) {
 }
 
 function closeDropdown() {
-  const dropdown = document.getElementById('search-dropdown');
+  const dropdown = document.getElementById("search-dropdown");
   if (dropdown) {
-    dropdown.classList.add('hidden');
-    dropdown.innerHTML = '';
+    dropdown.classList.add("hidden");
+    dropdown.innerHTML = "";
   }
-  const input = document.getElementById('search-input');
-  if (input) input.setAttribute('aria-expanded', 'false');
-}
 
-function highlightMatch(text, query) {
-  if (!query) return escapeHtml(text);
-  const escaped = escapeHtml(text);
-  const escapedQ = escapeHtml(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return escaped.replace(new RegExp(`(${escapedQ})`, 'gi'), '<span class="search-hl">$1</span>');
-}
-
-function escapeHtml(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function escapeAttr(str) {
-  return String(str).replace(/"/g, '&quot;');
+  const input = document.getElementById("search-input");
+  if (input) input.setAttribute("aria-expanded", "false");
 }
 
 // ─── 7. ZONA ───────────────────────────────────────────────
@@ -552,22 +555,32 @@ function selectZona(zona) {
 
 // ─── 8. EMPRESA ────────────────────────────────────────────
 function renderEmpresas(zona) {
-  const grid = document.getElementById('empresa-grid');
-  const label = document.getElementById('zona-selected-label');
+  const grid = document.getElementById("empresa-grid");
+  const label = document.getElementById("zona-selected-label");
+
   label.textContent = `Zona ${ZONAS[zona].label} · elige tu empresa`;
-  grid.innerHTML = '';
+  grid.innerHTML = "";
 
   const empresas = Object.keys(ZONAS[zona].empresas).sort();
+
   empresas.forEach(emp => {
-    const btn = document.createElement('button');
-    btn.className = 'chip';
-    const displayName = emp.replace(/ \((Norte|Sur|Centro)\)$/, '');
+    const btn = document.createElement("button");
+    btn.className = "chip";
+
+    const displayName = emp.replace(/ \((Norte|Sur|Centro)\)$/, "");
     btn.textContent = displayName;
-    btn.setAttribute('role', 'option');
-    btn.setAttribute('aria-label', `Seleccionar ${displayName}`);
-    btn.setAttribute('tabindex', '0');
-    btn.addEventListener('click', () => selectEmpresa(emp, displayName));
-    btn.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectEmpresa(emp, displayName); } });
+    btn.setAttribute("role", "option");
+    btn.setAttribute("aria-label", `Seleccionar ${displayName}`);
+    btn.setAttribute("tabindex", "0");
+
+    btn.addEventListener("click", () => selectEmpresa(emp, displayName));
+    btn.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        selectEmpresa(emp, displayName);
+      }
+    });
+
     grid.appendChild(btn);
   });
 }
@@ -581,33 +594,41 @@ function selectEmpresa(emp, displayName) {
 
 // ─── 9. LÍNEA ──────────────────────────────────────────────
 function renderLineas(emp, displayName) {
-  const grid = document.getElementById('linea-grid');
-  const label = document.getElementById('empresa-selected-label');
+  const grid = document.getElementById("linea-grid");
+  const label = document.getElementById("empresa-selected-label");
+
   label.textContent = displayName || emp;
-  grid.innerHTML = '';
+  grid.innerHTML = "";
 
   const rutas = ZONAS[state.zona].empresas[emp] || [];
+
   rutas.forEach(r => {
-    const btn = document.createElement('button');
-    btn.className = 'route-item';
-    btn.setAttribute('role', 'option');
-    btn.setAttribute('aria-label', `Línea ${r.ruta} – ${r.nombre}${r.flota ? ', ' + r.flota + ' buses' : ''}`);
+    const btn = document.createElement("button");
+    btn.className = "route-item";
+    btn.setAttribute("role", "option");
+    btn.setAttribute("aria-label", `Línea ${r.ruta} – ${r.nombre}${r.flota ? ", " + r.flota + " buses" : ""}`);
     btn.innerHTML = `
       <span class="route-badge">${r.ruta}</span>
       <span class="route-name">${r.nombre}</span>
       ${r.flota ? `<span class="route-fleet" aria-hidden="true">
-        <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><rect x="1" y="4" width="12" height="7" rx="2" stroke="#6B7A92" stroke-width="1.2"/><circle cx="4" cy="11.5" r="1.2" fill="#6B7A92"/><circle cx="10" cy="11.5" r="1.2" fill="#6B7A92"/><rect x="3" y="2" width="8" height="3" rx="1" stroke="#6B7A92" stroke-width="1.2"/></svg>
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+          <rect x="1" y="4" width="12" height="7" rx="2" stroke="#6B7A92" stroke-width="1.2"/>
+          <circle cx="4" cy="11.5" r="1.2" fill="#6B7A92"/>
+          <circle cx="10" cy="11.5" r="1.2" fill="#6B7A92"/>
+          <rect x="3" y="2" width="8" height="3" rx="1" stroke="#6B7A92" stroke-width="1.2"/>
+        </svg>
         ${r.flota}
-      </span>` : ''}
+      </span>` : ""}
     `;
-    btn.addEventListener('click', () => selectLinea(r));
+
+    btn.addEventListener("click", () => selectLinea(r));
     grid.appendChild(btn);
   });
 }
 
 function selectLinea(r) {
   state.linea = r;
-  const label = document.getElementById('linea-selected-label');
+  const label = document.getElementById("linea-selected-label");
   label.textContent = `Línea ${r.ruta} · ${r.nombre}`;
   showStep(4);
   showToast(`Línea ${r.ruta}`);
@@ -616,18 +637,22 @@ function selectLinea(r) {
 
 // ─── 10. MAPA ──────────────────────────────────────────────
 function initMap() {
-  if (state.map) { state.map.remove(); state.map = null; }
+  if (state.map) {
+    state.map.remove();
+    state.map = null;
+  }
+
   state.markers = [];
   state.activeMarkerEl = null;
 
-  document.getElementById('stop-empty').classList.remove('hidden');
-  document.getElementById('stop-content').classList.add('hidden');
+  document.getElementById("stop-empty").classList.remove("hidden");
+  document.getElementById("stop-content").classList.add("hidden");
 
   const c = ZONA_CENTER[state.zona];
-  const map = L.map('map', { zoomControl: true }).setView([c.lat, c.lng], c.zoom);
+  const map = L.map("map", { zoomControl: true }).setView([c.lat, c.lng], c.zoom);
   state.map = map;
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     maxZoom: 18,
   }).addTo(map);
@@ -638,44 +663,61 @@ function initMap() {
 
   const latlngs = stops.map(s => [s.lat, s.lng]);
   state.polyline = L.polyline(latlngs, {
-    color: '#FF6B2B', weight: 3.5, opacity: .55, dashArray: '8 5'
+    color: "#FF6B2B",
+    weight: 3.5,
+    opacity: 0.55,
+    dashArray: "8 5"
   }).addTo(map);
 
-  stops.forEach((stop) => {
+  stops.forEach(stop => {
     const icon = L.divIcon({
-      className: '',
+      className: "",
       html: `<div class="bus-stop-marker" tabindex="0" role="button" aria-label="Parada: ${stop.name}"></div>`,
-      iconSize: [14, 14], iconAnchor: [7, 7],
+      iconSize: [14, 14],
+      iconAnchor: [7, 7],
     });
+
     const marker = L.marker([stop.lat, stop.lng], { icon })
       .addTo(map)
-      .bindTooltip(stop.name, { direction: 'top', offset: [0, -8] });
+      .bindTooltip(stop.name, { direction: "top", offset: [0, -8] });
 
-    marker.on('click', () => { setActiveMarker(marker); showStop(stop); });
+    marker.on("click", () => {
+      setActiveMarker(marker);
+      showStop(stop);
+    });
 
     const el = marker.getElement();
     if (el) {
-      el.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveMarker(marker); showStop(stop); }
+      el.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setActiveMarker(marker);
+          showStop(stop);
+        }
       });
     }
+
     state.markers.push(marker);
   });
 }
 
 function setActiveMarker(marker) {
   if (state.activeMarkerEl) {
-    state.activeMarkerEl.querySelector('.bus-stop-marker')?.classList.remove('active');
+    state.activeMarkerEl.querySelector(".bus-stop-marker")?.classList.remove("active");
   }
+
   const el = marker.getElement();
-  if (el) { el.querySelector('.bus-stop-marker')?.classList.add('active'); state.activeMarkerEl = el; }
+  if (el) {
+    el.querySelector(".bus-stop-marker")?.classList.add("active");
+    state.activeMarkerEl = el;
+  }
 }
 
 // ─── 11. PARADA / TIEMPOS ──────────────────────────────────
 function showStop(stop) {
-  document.getElementById('stop-empty').classList.add('hidden');
-  document.getElementById('stop-content').classList.remove('hidden');
-  document.getElementById('stop-name').textContent = stop.name;
+  document.getElementById("stop-empty").classList.add("hidden");
+  document.getElementById("stop-content").classList.remove("hidden");
+  document.getElementById("stop-name").textContent = stop.name;
   renderArrivals();
 
   if (state.stopRefreshTimer) clearInterval(state.stopRefreshTimer);
@@ -683,14 +725,16 @@ function showStop(stop) {
 }
 
 function renderArrivals() {
-  const list = document.getElementById('arrivals-list');
-  list.innerHTML = '';
+  const list = document.getElementById("arrivals-list");
+  list.innerHTML = "";
+
   generateArrivals().forEach((mins, i) => {
-    const labels = ['Próximo bus', 'Segundo bus', 'Tercer bus'];
-    const cls = mins <= 5 ? 'soon' : mins <= 10 ? 'mid' : 'far';
-    const text = mins === 0 ? 'Llegando…' : `${mins} min`;
-    const row = document.createElement('div');
-    row.className = 'arrival-row';
+    const labels = ["Próximo bus", "Segundo bus", "Tercer bus"];
+    const cls = mins <= 5 ? "soon" : mins <= 10 ? "mid" : "far";
+    const text = mins === 0 ? "Llegando…" : `${mins} min`;
+
+    const row = document.createElement("div");
+    row.className = "arrival-row";
     row.innerHTML = `
       <span class="arrival-label">${labels[i]}</span>
       <span class="arrival-time ${cls}" aria-label="${labels[i]}: ${text}">${text}</span>
@@ -708,103 +752,138 @@ function generateArrivals() {
 
 // ─── 12. NAVEGACIÓN ────────────────────────────────────────
 function showStep(n) {
-  [1,2,3,4].forEach(i => {
-    document.getElementById(`step${i}`).classList.toggle('hidden', i !== n);
+  [1, 2, 3, 4].forEach(i => {
+    document.getElementById(`step${i}`).classList.toggle("hidden", i !== n);
   });
+
   updateStepper(n);
   updateBreadcrumb(n);
   state.step = n;
-  document.getElementById('selector').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById("selector").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function goToStep1() {
-  state.zona = null; state.empresa = null; state.linea = null;
+  state.zona = null;
+  state.empresa = null;
+  state.linea = null;
+
   if (state.stopRefreshTimer) clearInterval(state.stopRefreshTimer);
-  if (state.map) { state.map.remove(); state.map = null; }
+  if (state.map) {
+    state.map.remove();
+    state.map = null;
+  }
+
   showStep(1);
 }
+
 function goToStep2() {
-  state.empresa = null; state.linea = null;
+  state.empresa = null;
+  state.linea = null;
+
   if (state.stopRefreshTimer) clearInterval(state.stopRefreshTimer);
-  if (state.map) { state.map.remove(); state.map = null; }
+  if (state.map) {
+    state.map.remove();
+    state.map = null;
+  }
+
   renderEmpresas(state.zona);
   showStep(2);
 }
+
 function goToStep3() {
   state.linea = null;
+
   if (state.stopRefreshTimer) clearInterval(state.stopRefreshTimer);
-  if (state.map) { state.map.remove(); state.map = null; }
-  const displayName = state.empresa.replace(/ \((Norte|Sur|Centro)\)$/, '');
+  if (state.map) {
+    state.map.remove();
+    state.map = null;
+  }
+
+  const displayName = state.empresa.replace(/ \((Norte|Sur|Centro)\)$/, "");
   renderLineas(state.empresa, displayName);
   showStep(3);
 }
 
 function updateStepper(n) {
-  [1,2,3,4].forEach(i => {
+  [1, 2, 3, 4].forEach(i => {
     const el = document.getElementById(`step${i}-indicator`);
-    el.classList.toggle('active', i === n);
-    el.classList.toggle('done', i < n);
-    if (i === n) el.setAttribute('aria-current', 'step');
-    else el.removeAttribute('aria-current');
+    el.classList.toggle("active", i === n);
+    el.classList.toggle("done", i < n);
+
+    if (i === n) el.setAttribute("aria-current", "step");
+    else el.removeAttribute("aria-current");
   });
-  [1,2,3].forEach(i => {
+
+  [1, 2, 3].forEach(i => {
     const line = document.getElementById(`line-${i}`);
-    if (line) line.classList.toggle('done', i < n);
+    if (line) line.classList.toggle("done", i < n);
   });
 }
 
-function updateBreadcrumb(n) {
-  const bc = document.getElementById('breadcrumb');
-  bc.innerHTML = '';
+function updateBreadcrumb() {
+  const bc = document.getElementById("breadcrumb");
+  bc.innerHTML = "";
 
   const items = [];
-  if (state.zona)    items.push({ label: ZONAS[state.zona].label, step: 1 });
-  if (state.empresa) items.push({ label: state.empresa.replace(/ \((Norte|Sur|Centro)\)$/, ''), step: 2 });
-  if (state.linea)   items.push({ label: `Línea ${state.linea.ruta}`, step: 3 });
+  if (state.zona) items.push({ label: ZONAS[state.zona].label, step: 1 });
+  if (state.empresa) items.push({ label: state.empresa.replace(/ \((Norte|Sur|Centro)\)$/, ""), step: 2 });
+  if (state.linea) items.push({ label: `Línea ${state.linea.ruta}`, step: 3 });
 
   items.forEach((item, idx) => {
     if (idx > 0) {
-      const sep = document.createElement('span');
-      sep.className = 'bc-sep'; sep.textContent = '›'; sep.setAttribute('aria-hidden', 'true');
+      const sep = document.createElement("span");
+      sep.className = "bc-sep";
+      sep.textContent = "›";
+      sep.setAttribute("aria-hidden", "true");
       bc.appendChild(sep);
     }
-    const span = document.createElement('span');
-    span.className = 'bc-item' + (idx === items.length - 1 ? ' active' : '');
+
+    const span = document.createElement("span");
+    span.className = "bc-item" + (idx === items.length - 1 ? " active" : "");
     span.textContent = item.label;
+
     if (idx < items.length - 1) {
       span.title = `Volver a ${item.label}`;
-      span.addEventListener('click', () => {
+      span.addEventListener("click", () => {
         if (item.step === 1) goToStep1();
         else if (item.step === 2) goToStep2();
         else if (item.step === 3) goToStep3();
       });
     }
+
     bc.appendChild(span);
   });
 }
 
 // ─── 13. TOAST ─────────────────────────────────────────────
 let toastTimer;
+
 function showToast(msg) {
-  const t = document.getElementById('toast');
+  const t = document.getElementById("toast");
   t.textContent = msg;
-  t.classList.remove('hidden');
+  t.classList.remove("hidden");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.add('hidden'), 2200);
+  toastTimer = setTimeout(() => t.classList.add("hidden"), 2200);
 }
 
 // ─── 14. UTILS ─────────────────────────────────────────────
 function hashCode(str) {
   let h = 0;
-  for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  for (let i = 0; i < str.length; i++) {
+    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  }
   return Math.abs(h);
 }
+
 function shuffleSeed(arr, seed) {
-  const a = [...arr]; let s = seed;
+  const a = [...arr];
+  let s = seed;
+
   for (let i = a.length - 1; i > 0; i--) {
     s = (s * 1664525 + 1013904223) & 0xffffffff;
     const j = Math.abs(s) % (i + 1);
     [a[i], a[j]] = [a[j], a[i]];
   }
+
   return a;
 }
