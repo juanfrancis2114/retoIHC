@@ -30,6 +30,29 @@
       <span class="logo-text">Bus<strong>Quito</strong></span>
     </a>
 
+    <!-- BARRA DE BÚSQUEDA -->
+    <div class="search-wrapper" id="search-wrapper">
+      <div class="search-bar" role="search">
+        <svg class="search-icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <circle cx="9" cy="9" r="6" stroke="#6B7A92" stroke-width="1.8"/>
+          <path d="M13.5 13.5L17 17" stroke="#6B7A92" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <input
+          type="search"
+          id="search-input"
+          class="search-input"
+          placeholder="Busca línea o empresa… ej: 113, Catar"
+          autocomplete="off"
+          aria-label="Buscar línea o empresa de bus"
+          aria-autocomplete="list"
+          aria-controls="search-dropdown"
+          aria-expanded="false"
+        />
+        <button class="search-clear hidden" id="search-clear" aria-label="Limpiar búsqueda">✕</button>
+      </div>
+      <div id="search-dropdown" class="search-dropdown hidden" role="listbox" aria-label="Resultados de búsqueda"></div>
+    </div>
+
     <nav class="breadcrumb" id="breadcrumb" aria-label="Selección actual" aria-live="polite"></nav>
 
     <div class="header-badge" aria-label="Quito, Ecuador">
@@ -101,37 +124,121 @@
         </div>
       </div>
       <div class="zone-grid" role="listbox" aria-label="Selecciona zona de la ciudad">
+
+        <!-- NORTE -->
         <button class="zone-card" data-zone="norte" aria-label="Rutas del Norte de Quito">
           <div class="zone-map-thumb north" aria-hidden="true">
-            <svg viewBox="0 0 80 60" fill="none"><path d="M10 50 Q20 20 40 10 Q60 20 70 50 Z" fill="rgba(255,107,43,.15)" stroke="#FF6B2B" stroke-width="1.5"/><circle cx="40" cy="28" r="4" fill="#FF6B2B"/><circle cx="25" cy="38" r="3" fill="#FF6B2B" opacity=".6"/><circle cx="55" cy="35" r="3" fill="#FF6B2B" opacity=".6"/></svg>
+            <svg viewBox="0 0 110 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Edificios altos norte -->
+              <rect x="12" y="38" width="12" height="42" rx="2" fill="#FF6B2B" opacity="0.85"/>
+              <rect x="14" y="32" width="8" height="8" rx="1" fill="#FF6B2B"/>
+              <rect x="28" y="50" width="10" height="30" rx="2" fill="#FF6B2B" opacity="0.6"/>
+              <rect x="42" y="28" width="14" height="52" rx="2" fill="#FF6B2B" opacity="0.9"/>
+              <rect x="44" y="20" width="10" height="10" rx="1" fill="#FF6B2B"/>
+              <rect x="60" y="44" width="11" height="36" rx="2" fill="#FF6B2B" opacity="0.65"/>
+              <rect x="75" y="33" width="12" height="47" rx="2" fill="#FF6B2B" opacity="0.8"/>
+              <rect x="77" y="24" width="8" height="11" rx="1" fill="#FF6B2B"/>
+              <rect x="90" y="52" width="9" height="28" rx="2" fill="#FF6B2B" opacity="0.5"/>
+              <!-- Ventanas -->
+              <rect x="14" y="42" width="3" height="3" rx="0.5" fill="white" opacity="0.7"/>
+              <rect x="19" y="42" width="3" height="3" rx="0.5" fill="white" opacity="0.7"/>
+              <rect x="14" y="50" width="3" height="3" rx="0.5" fill="white" opacity="0.7"/>
+              <rect x="19" y="50" width="3" height="3" rx="0.5" fill="white" opacity="0.7"/>
+              <rect x="44" y="35" width="3" height="3" rx="0.5" fill="white" opacity="0.7"/>
+              <rect x="50" y="35" width="3" height="3" rx="0.5" fill="white" opacity="0.7"/>
+              <rect x="44" y="44" width="3" height="3" rx="0.5" fill="white" opacity="0.7"/>
+              <rect x="50" y="44" width="3" height="3" rx="0.5" fill="white" opacity="0.7"/>
+              <rect x="77" y="37" width="3" height="3" rx="0.5" fill="white" opacity="0.7"/>
+              <rect x="83" y="37" width="3" height="3" rx="0.5" fill="white" opacity="0.7"/>
+              <!-- Suelo -->
+              <rect x="5" y="78" width="100" height="4" rx="2" fill="#FF6B2B" opacity="0.25"/>
+              <!-- Flecha norte -->
+              <circle cx="55" cy="10" r="7" fill="#FF6B2B" opacity="0.15"/>
+              <path d="M55 14V6M51 10l4-4 4 4" stroke="#FF6B2B" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
           </div>
           <div class="zone-info">
-            <span class="zone-arrow" aria-hidden="true">↑</span>
             <span class="zone-name">Norte</span>
             <span class="zone-desc">Carcelén, Cotocollao,<br/>Comité del Pueblo…</span>
             <span class="zone-count" id="count-norte"></span>
           </div>
         </button>
 
+        <!-- SUR -->
         <button class="zone-card" data-zone="sur" aria-label="Rutas del Sur de Quito">
           <div class="zone-map-thumb south" aria-hidden="true">
-            <svg viewBox="0 0 80 60" fill="none"><path d="M10 10 Q20 40 40 50 Q60 40 70 10 Z" fill="rgba(42,95,158,.12)" stroke="#2A5F9E" stroke-width="1.5"/><circle cx="40" cy="32" r="4" fill="#2A5F9E"/><circle cx="25" cy="22" r="3" fill="#2A5F9E" opacity=".6"/><circle cx="55" cy="25" r="3" fill="#2A5F9E" opacity=".6"/></svg>
+            <svg viewBox="0 0 110 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Casas del sur más bajas y coloridas -->
+              <rect x="8" y="52" width="18" height="26" rx="2" fill="#2A5F9E" opacity="0.75"/>
+              <polygon points="8,52 17,40 26,52" fill="#2A5F9E" opacity="0.9"/>
+              <rect x="30" y="56" width="16" height="22" rx="2" fill="#2A5F9E" opacity="0.6"/>
+              <polygon points="30,56 38,45 46,56" fill="#2A5F9E" opacity="0.8"/>
+              <rect x="50" y="48" width="20" height="30" rx="2" fill="#2A5F9E" opacity="0.85"/>
+              <polygon points="50,48 60,35 70,48" fill="#2A5F9E"/>
+              <rect x="74" y="54" width="15" height="24" rx="2" fill="#2A5F9E" opacity="0.65"/>
+              <polygon points="74,54 82,43 89,54" fill="#2A5F9E" opacity="0.8"/>
+              <rect x="93" y="58" width="13" height="20" rx="2" fill="#2A5F9E" opacity="0.5"/>
+              <!-- Puertas y ventanas -->
+              <rect x="14" y="63" width="5" height="8" rx="1" fill="white" opacity="0.6"/>
+              <rect x="36" y="66" width="4" height="7" rx="1" fill="white" opacity="0.6"/>
+              <rect x="57" y="60" width="5" height="8" rx="1" fill="white" opacity="0.6"/>
+              <rect x="53" y="53" width="4" height="4" rx="0.5" fill="white" opacity="0.5"/>
+              <rect x="63" y="53" width="4" height="4" rx="0.5" fill="white" opacity="0.5"/>
+              <rect x="78" y="63" width="4" height="7" rx="1" fill="white" opacity="0.6"/>
+              <!-- Suelo -->
+              <rect x="5" y="78" width="100" height="4" rx="2" fill="#2A5F9E" opacity="0.2"/>
+              <!-- Flecha sur -->
+              <circle cx="55" cy="10" r="7" fill="#2A5F9E" opacity="0.12"/>
+              <path d="M55 6v8M51 10l4 4 4-4" stroke="#2A5F9E" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
           </div>
           <div class="zone-info">
-            <span class="zone-arrow south-arrow" aria-hidden="true">↓</span>
-            <span class="zone-name">Sur</span>
+            <span class="zone-name south-name">Sur</span>
             <span class="zone-desc">Chillogallo, Guamaní,<br/>Quitumbe…</span>
             <span class="zone-count" id="count-sur"></span>
           </div>
         </button>
 
+        <!-- CENTRO -->
         <button class="zone-card" data-zone="centro" aria-label="Rutas Céntricas de Quito">
           <div class="zone-map-thumb centro" aria-hidden="true">
-            <svg viewBox="0 0 80 60" fill="none"><rect x="25" y="15" width="30" height="30" rx="6" fill="rgba(27,124,66,.12)" stroke="#1B7C42" stroke-width="1.5"/><circle cx="40" cy="30" r="5" fill="#1B7C42"/><circle cx="28" cy="22" r="2.5" fill="#1B7C42" opacity=".6"/><circle cx="52" cy="38" r="2.5" fill="#1B7C42" opacity=".6"/></svg>
+            <svg viewBox="0 0 110 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Iglesia/centro histórico -->
+              <rect x="38" y="38" width="34" height="40" rx="2" fill="#1B7C42" opacity="0.75"/>
+              <!-- Torres de iglesia -->
+              <rect x="38" y="22" width="10" height="18" rx="1" fill="#1B7C42" opacity="0.9"/>
+              <rect x="62" y="22" width="10" height="18" rx="1" fill="#1B7C42" opacity="0.9"/>
+              <!-- Cúpula central -->
+              <ellipse cx="55" cy="36" rx="9" ry="7" fill="#1B7C42"/>
+              <rect x="51" y="12" width="8" height="14" rx="1" fill="#1B7C42" opacity="0.8"/>
+              <path d="M55 8v5M53 10l2-2 2 2" stroke="#1B7C42" stroke-width="1.5" stroke-linecap="round"/>
+              <!-- Ventanas arco -->
+              <path d="M45 50 Q48 45 51 50" stroke="white" stroke-width="1.2" fill="white" opacity="0.55"/>
+              <rect x="45" y="50" width="6" height="8" rx="0" fill="white" opacity="0.55"/>
+              <path d="M59 50 Q62 45 65 50" stroke="white" stroke-width="1.2" fill="white" opacity="0.55"/>
+              <rect x="59" y="50" width="6" height="8" rx="0" fill="white" opacity="0.55"/>
+              <!-- Puerta principal -->
+              <path d="M50 78 Q55 70 60 78" fill="white" opacity="0.7"/>
+              <rect x="50" y="72" width="10" height="6" fill="white" opacity="0.7"/>
+              <!-- Escalinatas -->
+              <rect x="36" y="78" width="38" height="2" rx="1" fill="#1B7C42" opacity="0.4"/>
+              <rect x="34" y="80" width="42" height="2" rx="1" fill="#1B7C42" opacity="0.25"/>
+              <!-- Edificios laterales -->
+              <rect x="8" y="54" width="26" height="24" rx="2" fill="#1B7C42" opacity="0.45"/>
+              <rect x="76" y="54" width="26" height="24" rx="2" fill="#1B7C42" opacity="0.45"/>
+              <!-- Ventanas laterales -->
+              <rect x="13" y="58" width="4" height="4" rx="0.5" fill="white" opacity="0.5"/>
+              <rect x="20" y="58" width="4" height="4" rx="0.5" fill="white" opacity="0.5"/>
+              <rect x="13" y="66" width="4" height="4" rx="0.5" fill="white" opacity="0.5"/>
+              <rect x="20" y="66" width="4" height="4" rx="0.5" fill="white" opacity="0.5"/>
+              <rect x="81" y="58" width="4" height="4" rx="0.5" fill="white" opacity="0.5"/>
+              <rect x="88" y="58" width="4" height="4" rx="0.5" fill="white" opacity="0.5"/>
+              <rect x="81" y="66" width="4" height="4" rx="0.5" fill="white" opacity="0.5"/>
+              <rect x="88" y="66" width="4" height="4" rx="0.5" fill="white" opacity="0.5"/>
+            </svg>
           </div>
           <div class="zone-info">
-            <span class="zone-arrow centro-arrow" aria-hidden="true">◎</span>
-            <span class="zone-name">Centro</span>
+            <span class="zone-name centro-name">Centro</span>
             <span class="zone-desc">UCE, Camal,<br/>Centro Histórico…</span>
             <span class="zone-count" id="count-centro"></span>
           </div>
@@ -139,7 +246,7 @@
       </div>
     </div>
 
-    <!-- ── PASO 2: Empresa (modal-style overlay dentro del card) ── -->
+    <!-- ── PASO 2: Empresa ── -->
     <div id="step2" class="card step-card hidden" aria-live="polite">
       <button class="back-btn" id="back1" aria-label="Volver a selección de zona">← Volver</button>
       <div class="card-header">
@@ -216,7 +323,8 @@
       </svg>
       <span class="logo-text">Bus<strong>Quito</strong></span>
     </div>
-    <p class="footer-note">Información con fines educativos · IHC – PUCE · Tiempos aproximados, no representan datos reales.</p>
+    <p class="footer-note">Plataforma informativa para consultar rutas, paradas y tiempos estimados 
+        del transporte público en Quito.</p>
   </div>
 </footer>
 
