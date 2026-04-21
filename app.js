@@ -1,12 +1,8 @@
 /* ══════════════════════════════════════
    BusQuito – Lógica principal
-   Zonas según datos reales del sistema
    ══════════════════════════════════════ */
 
 // ─── 1. DATA POR ZONA ──────────────────────────────────────
-// Cada empresa aparece únicamente en la zona correcta según el documento.
-// Si una empresa tiene rutas en varias zonas, aparece en cada una con sus rutas correspondientes.
-
 const ZONAS = {
   norte: {
     label: "Norte",
@@ -249,7 +245,6 @@ const PARADAS_POR_ZONA = {
   ],
 };
 
-// Centros del mapa por zona
 const ZONA_CENTER = {
   norte:  { lat: -0.130, lng: -78.492, zoom: 12 },
   sur:    { lat: -0.280, lng: -78.540, zoom: 12 },
@@ -258,20 +253,14 @@ const ZONA_CENTER = {
 
 // ─── 3. STATE ──────────────────────────────────────────────
 const state = {
-  zona: null,
-  empresa: null,
-  linea: null,
-  step: 1,
-  map: null,
-  markers: [],
-  polyline: null,
-  activeMarkerEl: null,
-  stopRefreshTimer: null,
+  zona: null, empresa: null, linea: null, step: 1,
+  map: null, markers: [], polyline: null,
+  activeMarkerEl: null, stopRefreshTimer: null,
 };
 
 // ─── 4. INIT ───────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  // Contar empresas por zona para los badges
+  // Contar empresas por zona
   Object.entries(ZONAS).forEach(([key, z]) => {
     const el = document.getElementById(`count-${key}`);
     if (el) {
@@ -297,9 +286,261 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Logo resets
   document.getElementById('logo-link').addEventListener('click', e => { e.preventDefault(); goToStep1(); });
+
+  // Search init
+  initSearch();
+
+  // Close search dropdown when clicking outside
+  document.addEventListener('click', e => {
+    const wrapper = document.getElementById('search-wrapper');
+    if (wrapper && !wrapper.contains(e.target)) closeDropdown();
+  });
 });
 
-// ─── 5. ZONA ───────────────────────────────────────────────
+// ─── 5. WELCOME MODAL ──────────────────────────────────────
+function chooseSearch() {
+  closeModal();
+  // Focus search input después del cierre
+  setTimeout(() => {
+    const input = document.getElementById('search-input');
+    if (input) input.focus();
+  }, 280);
+}
+
+function chooseZones() {
+  closeModal();
+  setTimeout(() => {
+    document.getElementById('selector').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 280);
+}
+
+function closeModal() {
+  const overlay = document.getElementById('welcome-modal');
+  if (!overlay) return;
+  overlay.classList.add('closing');
+  setTimeout(() => overlay.remove(), 260);
+}
+
+// ─── 6. SEARCH ─────────────────────────────────────────────
+
+// Construir índice plano de todas las rutas y empresas
+function buildSearchIndex() {
+  const index = [];
+
+  Object.entries(ZONAS).forEach(([zonaKey, zona]) => {
+    // Empresas
+    const empresasAgregadas = new Set();
+    Object.entries(zona.empresas).forEach(([empKey, rutas]) => {
+      const displayName = empKey.replace(/ \((Norte|Sur|Centro)\)$/, '');
+      if (!empresasAgregadas.has(displayName + zonaKey)) {
+        empresasAgregadas.add(displayName + zonaKey);
+        index.push({
+          type: 'empresa',
+          zona: zonaKey,
+          zonaLabel: zona.label,
+          empKey,
+          displayName,
+          searchText: (displayName + ' ' + zonaKey + ' ' + zona.label).toLowerCase(),
+        });
+      }
+      // Rutas
+      rutas.forEach(r => {
+        index.push({
+          type: 'ruta',
+          zona: zonaKey,
+          zonaLabel: zona.label,
+          empKey,
+          displayName,
+          ruta: r.ruta,
+          nombre: r.nombre,
+          flota: r.flota,
+          searchText: ('línea ' + r.ruta + ' ' + r.nombre + ' ' + displayName + ' ' + zona.label).toLowerCase(),
+        });
+      });
+    });
+  });
+
+  return index;
+}
+
+let searchIndex = null;
+
+function initSearch() {
+  searchIndex = buildSearchIndex();
+
+  const input = document.getElementById('search-input');
+  const clearBtn = document.getElementById('search-clear');
+  const dropdown = document.getElementById('search-dropdown');
+
+  input.addEventListener('input', () => {
+    const q = input.value.trim();
+    clearBtn.classList.toggle('hidden', q.length === 0);
+    if (q.length === 0) { closeDropdown(); return; }
+    if (q.length < 1) return;
+    renderDropdown(q);
+  });
+
+  input.addEventListener('focus', () => {
+    const q = input.value.trim();
+    if (q.length > 0) renderDropdown(q);
+  });
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { closeDropdown(); input.blur(); }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const first = dropdown.querySelector('.search-result-item');
+      if (first) first.focus();
+    }
+  });
+
+  clearBtn.addEventListener('click', () => {
+    input.value = '';
+    clearBtn.classList.add('hidden');
+    closeDropdown();
+    input.focus();
+  });
+
+  // Keyboard nav dentro del dropdown
+  dropdown.addEventListener('keydown', e => {
+    const items = [...dropdown.querySelectorAll('.search-result-item')];
+    const idx = items.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const next = items[idx + 1];
+      if (next) next.focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (idx === 0) { input.focus(); }
+      else { const prev = items[idx - 1]; if (prev) prev.focus(); }
+    } else if (e.key === 'Escape') {
+      closeDropdown(); input.focus();
+    }
+  });
+}
+
+function renderDropdown(query) {
+  const dropdown = document.getElementById('search-dropdown');
+  const q = query.toLowerCase().trim();
+
+  const results = searchIndex.filter(item => item.searchText.includes(q)).slice(0, 18);
+
+  if (results.length === 0) {
+    dropdown.innerHTML = `<div class="search-empty">Sin resultados para "<strong>${escapeHtml(query)}</strong>"</div>`;
+    dropdown.classList.remove('hidden');
+    document.getElementById('search-input').setAttribute('aria-expanded', 'true');
+    return;
+  }
+
+  // Separar en grupos: rutas y empresas
+  const rutas = results.filter(r => r.type === 'ruta');
+  const empresas = results.filter(r => r.type === 'empresa');
+
+  let html = '';
+
+  if (rutas.length > 0) {
+    html += `<div class="search-group-label">Líneas de bus</div>`;
+    rutas.slice(0, 10).forEach(item => {
+      html += `
+        <button class="search-result-item" role="option"
+          data-zona="${item.zona}" data-emp="${escapeAttr(item.empKey)}"
+          data-ruta='${escapeAttr(JSON.stringify({ ruta: item.ruta, nombre: item.nombre, flota: item.flota }))}'>
+          <span class="sri-badge">${item.ruta}</span>
+          <span class="sri-info">
+            <span class="sri-name">${highlightMatch(item.nombre, query)}</span>
+            <span class="sri-meta">${highlightMatch(item.displayName, query)}</span>
+          </span>
+          <span class="sri-zone ${item.zona}">${item.zonaLabel}</span>
+        </button>`;
+    });
+  }
+
+  if (empresas.length > 0) {
+    html += `<div class="search-group-label">Empresas operadoras</div>`;
+    empresas.slice(0, 6).forEach(item => {
+      const rutaCount = ZONAS[item.zona].empresas[item.empKey]?.length || 0;
+      html += `
+        <button class="search-result-item" role="option"
+          data-zona="${item.zona}" data-emp="${escapeAttr(item.empKey)}">
+          <span class="sri-badge empresa">EMP</span>
+          <span class="sri-info">
+            <span class="sri-name">${highlightMatch(item.displayName, query)}</span>
+            <span class="sri-meta">${rutaCount} línea${rutaCount !== 1 ? 's' : ''}</span>
+          </span>
+          <span class="sri-zone ${item.zona}">${item.zonaLabel}</span>
+        </button>`;
+    });
+  }
+
+  dropdown.innerHTML = html;
+  dropdown.classList.remove('hidden');
+  document.getElementById('search-input').setAttribute('aria-expanded', 'true');
+
+  // Attach click events
+  dropdown.querySelectorAll('.search-result-item').forEach(btn => {
+    btn.addEventListener('click', () => handleSearchSelect(btn));
+    btn.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSearchSelect(btn); }
+    });
+  });
+}
+
+function handleSearchSelect(btn) {
+  const zona = btn.dataset.zona;
+  const empKey = btn.dataset.emp;
+  const rutaRaw = btn.dataset.ruta;
+
+  closeDropdown();
+  document.getElementById('search-input').value = '';
+  document.getElementById('search-clear').classList.add('hidden');
+
+  if (rutaRaw) {
+    // Ir directo a la línea
+    const r = JSON.parse(rutaRaw);
+    state.zona = zona;
+    state.empresa = empKey;
+    state.linea = r;
+    document.getElementById('linea-selected-label').textContent = `Línea ${r.ruta} · ${r.nombre}`;
+    showStep(4);
+    showToast(`Línea ${r.ruta} · ${r.nombre}`);
+    requestAnimationFrame(() => setTimeout(initMap, 80));
+  } else {
+    // Ir a paso 3 (líneas de la empresa)
+    state.zona = zona;
+    state.empresa = empKey;
+    const displayName = empKey.replace(/ \((Norte|Sur|Centro)\)$/, '');
+    renderLineas(empKey, displayName);
+    showStep(3);
+    showToast(displayName);
+  }
+}
+
+function closeDropdown() {
+  const dropdown = document.getElementById('search-dropdown');
+  if (dropdown) {
+    dropdown.classList.add('hidden');
+    dropdown.innerHTML = '';
+  }
+  const input = document.getElementById('search-input');
+  if (input) input.setAttribute('aria-expanded', 'false');
+}
+
+function highlightMatch(text, query) {
+  if (!query) return escapeHtml(text);
+  const escaped = escapeHtml(text);
+  const escapedQ = escapeHtml(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return escaped.replace(new RegExp(`(${escapedQ})`, 'gi'), '<span class="search-hl">$1</span>');
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function escapeAttr(str) {
+  return String(str).replace(/"/g, '&quot;');
+}
+
+// ─── 7. ZONA ───────────────────────────────────────────────
 function selectZona(zona) {
   state.zona = zona;
   state.empresa = null;
@@ -309,7 +550,7 @@ function selectZona(zona) {
   showToast(`Zona ${ZONAS[zona].label} seleccionada`);
 }
 
-// ─── 6. EMPRESA ────────────────────────────────────────────
+// ─── 8. EMPRESA ────────────────────────────────────────────
 function renderEmpresas(zona) {
   const grid = document.getElementById('empresa-grid');
   const label = document.getElementById('zona-selected-label');
@@ -320,7 +561,6 @@ function renderEmpresas(zona) {
   empresas.forEach(emp => {
     const btn = document.createElement('button');
     btn.className = 'chip';
-    // Limpiar el "(Norte)" / "(Sur)" etc. del nombre mostrado
     const displayName = emp.replace(/ \((Norte|Sur|Centro)\)$/, '');
     btn.textContent = displayName;
     btn.setAttribute('role', 'option');
@@ -339,7 +579,7 @@ function selectEmpresa(emp, displayName) {
   showToast(displayName || emp);
 }
 
-// ─── 7. LÍNEA ──────────────────────────────────────────────
+// ─── 9. LÍNEA ──────────────────────────────────────────────
 function renderLineas(emp, displayName) {
   const grid = document.getElementById('linea-grid');
   const label = document.getElementById('empresa-selected-label');
@@ -371,18 +611,15 @@ function selectLinea(r) {
   label.textContent = `Línea ${r.ruta} · ${r.nombre}`;
   showStep(4);
   showToast(`Línea ${r.ruta}`);
-  // Init map after paint
   requestAnimationFrame(() => setTimeout(initMap, 80));
 }
 
-// ─── 8. MAPA ───────────────────────────────────────────────
+// ─── 10. MAPA ──────────────────────────────────────────────
 function initMap() {
-  // Destroy previous map
   if (state.map) { state.map.remove(); state.map = null; }
   state.markers = [];
   state.activeMarkerEl = null;
 
-  // Reset stop panel
   document.getElementById('stop-empty').classList.remove('hidden');
   document.getElementById('stop-content').classList.add('hidden');
 
@@ -395,18 +632,15 @@ function initMap() {
     maxZoom: 18,
   }).addTo(map);
 
-  // Seleccionar paradas pseudo-aleatoriamente según la línea
   const seed = hashCode(state.linea.ruta + state.zona);
   const allStops = PARADAS_POR_ZONA[state.zona];
   const stops = shuffleSeed(allStops, seed).slice(0, 6 + (seed % 4));
 
-  // Polyline
   const latlngs = stops.map(s => [s.lat, s.lng]);
   state.polyline = L.polyline(latlngs, {
     color: '#FF6B2B', weight: 3.5, opacity: .55, dashArray: '8 5'
   }).addTo(map);
 
-  // Marcadores
   stops.forEach((stop) => {
     const icon = L.divIcon({
       className: '',
@@ -430,7 +664,6 @@ function initMap() {
 }
 
 function setActiveMarker(marker) {
-  // Reset previous
   if (state.activeMarkerEl) {
     state.activeMarkerEl.querySelector('.bus-stop-marker')?.classList.remove('active');
   }
@@ -438,7 +671,7 @@ function setActiveMarker(marker) {
   if (el) { el.querySelector('.bus-stop-marker')?.classList.add('active'); state.activeMarkerEl = el; }
 }
 
-// ─── 9. PARADA / TIEMPOS ───────────────────────────────────
+// ─── 11. PARADA / TIEMPOS ──────────────────────────────────
 function showStop(stop) {
   document.getElementById('stop-empty').classList.add('hidden');
   document.getElementById('stop-content').classList.remove('hidden');
@@ -467,15 +700,13 @@ function renderArrivals() {
 }
 
 function generateArrivals() {
-  // Primero: 0-15 min aleatorio
   const a = Math.floor(Math.random() * 16);
-  // Siguiente: +5 a +15
   const b = a + 5 + Math.floor(Math.random() * 11);
   const c = b + 5 + Math.floor(Math.random() * 11);
   return [a, b, c];
 }
 
-// ─── 10. NAVEGACIÓN ────────────────────────────────────────
+// ─── 12. NAVEGACIÓN ────────────────────────────────────────
 function showStep(n) {
   [1,2,3,4].forEach(i => {
     document.getElementById(`step${i}`).classList.toggle('hidden', i !== n);
@@ -552,7 +783,7 @@ function updateBreadcrumb(n) {
   });
 }
 
-// ─── 11. TOAST ─────────────────────────────────────────────
+// ─── 13. TOAST ─────────────────────────────────────────────
 let toastTimer;
 function showToast(msg) {
   const t = document.getElementById('toast');
@@ -562,7 +793,7 @@ function showToast(msg) {
   toastTimer = setTimeout(() => t.classList.add('hidden'), 2200);
 }
 
-// ─── 12. UTILS ─────────────────────────────────────────────
+// ─── 14. UTILS ─────────────────────────────────────────────
 function hashCode(str) {
   let h = 0;
   for (let i = 0; i < str.length; i++) h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
