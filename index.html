@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="BusQuito – Sistema informativo de buses urbanos de Quito, Ecuador." />
+  <title>BusQuito – Rutas Urbanas de Quito</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+
+<!-- ──────────── HEADER ──────────── -->
+<header class="header" role="banner">
+  <div class="header-inner">
+    <a href="#" class="logo" aria-label="BusQuito – Inicio" id="logo-link">
+      <svg class="logo-icon" viewBox="0 0 40 40" aria-hidden="true">
+        <rect width="40" height="40" rx="10" fill="#FF6B2B"/>
+        <rect x="7" y="14" width="26" height="16" rx="4" fill="white"/>
+        <circle cx="13" cy="31" r="3" fill="#1A3A5C"/>
+        <circle cx="27" cy="31" r="3" fill="#1A3A5C"/>
+        <rect x="10" y="9" width="20" height="7" rx="2" fill="white"/>
+        <rect x="9" y="17" width="7" height="5" rx="1" fill="#ADE0FF"/>
+        <rect x="18" y="17" width="7" height="5" rx="1" fill="#ADE0FF"/>
+      </svg>
+      <span class="logo-text">Bus<strong>Quito</strong></span>
+    </a>
+
+    <nav class="breadcrumb" id="breadcrumb" aria-label="Selección actual" aria-live="polite"></nav>
+
+    <div class="header-badge" aria-label="Quito, Ecuador">
+      <svg width="12" height="12" viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="6" stroke="#FF6B2B" stroke-width="1.5" fill="none"/><path d="M7 3v4l2.5 2.5" stroke="#FF6B2B" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+      Quito, EC
+    </div>
+  </div>
+</header>
+
+<!-- ──────────── HERO ──────────── -->
+<section class="hero" aria-labelledby="hero-title">
+  <div class="hero-inner">
+    <div class="hero-text">
+      <span class="hero-tag">Sistema de transporte urbano</span>
+      <h1 id="hero-title">Encuentra tu bus<br /><em>en segundos</em></h1>
+      <a href="#selector" class="btn-primary" aria-label="Ir al selector de rutas">Consultar rutas →</a>
+    </div>
+    <div class="hero-graphic" aria-hidden="true">
+      <div class="hero-card">
+        <div class="hc-label">Zona Norte</div>
+        <div class="hc-row"><span class="hc-dot orange"></span><span>Empresa CATAR</span></div>
+        <div class="hc-row"><span class="hc-dot blue"></span><span>Línea 113 · Marín-Carcelén</span></div>
+        <div class="hc-row arriving">
+          <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" stroke="#27AE60" stroke-width="1.5" fill="none"/><path d="M8 4v4l2 2" stroke="#27AE60" stroke-width="1.5" stroke-linecap="round" fill="none"/></svg>
+          Llega en <strong>5 min</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="hero-wave" aria-hidden="true">
+    <svg viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0,40 C360,80 1080,0 1440,40 L1440,80 L0,80 Z" fill="#F4F6FA"/></svg>
+  </div>
+</section>
+
+<!-- ──────────── SELECTOR ──────────── -->
+<section id="selector" class="selector-section" aria-label="Selector de ruta de bus">
+  <div class="container">
+
+    <!-- Stepper -->
+    <div class="stepper" role="list" aria-label="Pasos del proceso">
+      <div class="step active" id="step1-indicator" role="listitem" aria-current="step">
+        <div class="step-circle">1</div>
+        <span class="step-label">Zona</span>
+      </div>
+      <div class="step-line" id="line-1" aria-hidden="true"></div>
+      <div class="step" id="step2-indicator" role="listitem">
+        <div class="step-circle">2</div>
+        <span class="step-label">Empresa</span>
+      </div>
+      <div class="step-line" id="line-2" aria-hidden="true"></div>
+      <div class="step" id="step3-indicator" role="listitem">
+        <div class="step-circle">3</div>
+        <span class="step-label">Línea</span>
+      </div>
+      <div class="step-line" id="line-3" aria-hidden="true"></div>
+      <div class="step" id="step4-indicator" role="listitem">
+        <div class="step-circle">4</div>
+        <span class="step-label">Parada</span>
+      </div>
+    </div>
+
+    <!-- ── PASO 1: Zona ── -->
+    <div id="step1" class="card step-card">
+      <div class="card-header">
+        <span class="card-icon" aria-hidden="true">🗺️</span>
+        <div>
+          <h2 class="card-title">¿Desde qué zona viajas?</h2>
+          <p class="card-hint">Elige la parte de la ciudad donde abordas el bus</p>
+        </div>
+      </div>
+      <div class="zone-grid" role="listbox" aria-label="Selecciona zona de la ciudad">
+        <button class="zone-card" data-zone="norte" aria-label="Rutas del Norte de Quito">
+          <div class="zone-map-thumb north" aria-hidden="true">
+            <svg viewBox="0 0 80 60" fill="none"><path d="M10 50 Q20 20 40 10 Q60 20 70 50 Z" fill="rgba(255,107,43,.15)" stroke="#FF6B2B" stroke-width="1.5"/><circle cx="40" cy="28" r="4" fill="#FF6B2B"/><circle cx="25" cy="38" r="3" fill="#FF6B2B" opacity=".6"/><circle cx="55" cy="35" r="3" fill="#FF6B2B" opacity=".6"/></svg>
+          </div>
+          <div class="zone-info">
+            <span class="zone-arrow" aria-hidden="true">↑</span>
+            <span class="zone-name">Norte</span>
+            <span class="zone-desc">Carcelén, Cotocollao,<br/>Comité del Pueblo…</span>
+            <span class="zone-count" id="count-norte"></span>
+          </div>
+        </button>
+
+        <button class="zone-card" data-zone="sur" aria-label="Rutas del Sur de Quito">
+          <div class="zone-map-thumb south" aria-hidden="true">
+            <svg viewBox="0 0 80 60" fill="none"><path d="M10 10 Q20 40 40 50 Q60 40 70 10 Z" fill="rgba(42,95,158,.12)" stroke="#2A5F9E" stroke-width="1.5"/><circle cx="40" cy="32" r="4" fill="#2A5F9E"/><circle cx="25" cy="22" r="3" fill="#2A5F9E" opacity=".6"/><circle cx="55" cy="25" r="3" fill="#2A5F9E" opacity=".6"/></svg>
+          </div>
+          <div class="zone-info">
+            <span class="zone-arrow south-arrow" aria-hidden="true">↓</span>
+            <span class="zone-name">Sur</span>
+            <span class="zone-desc">Chillogallo, Guamaní,<br/>Quitumbe…</span>
+            <span class="zone-count" id="count-sur"></span>
+          </div>
+        </button>
+
+        <button class="zone-card" data-zone="centro" aria-label="Rutas Céntricas de Quito">
+          <div class="zone-map-thumb centro" aria-hidden="true">
+            <svg viewBox="0 0 80 60" fill="none"><rect x="25" y="15" width="30" height="30" rx="6" fill="rgba(27,124,66,.12)" stroke="#1B7C42" stroke-width="1.5"/><circle cx="40" cy="30" r="5" fill="#1B7C42"/><circle cx="28" cy="22" r="2.5" fill="#1B7C42" opacity=".6"/><circle cx="52" cy="38" r="2.5" fill="#1B7C42" opacity=".6"/></svg>
+          </div>
+          <div class="zone-info">
+            <span class="zone-arrow centro-arrow" aria-hidden="true">◎</span>
+            <span class="zone-name">Centro</span>
+            <span class="zone-desc">UCE, Camal,<br/>Centro Histórico…</span>
+            <span class="zone-count" id="count-centro"></span>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── PASO 2: Empresa (modal-style overlay dentro del card) ── -->
+    <div id="step2" class="card step-card hidden" aria-live="polite">
+      <button class="back-btn" id="back1" aria-label="Volver a selección de zona">← Volver</button>
+      <div class="card-header">
+        <span class="card-icon" aria-hidden="true">🏢</span>
+        <div>
+          <h2 class="card-title">Empresa operadora</h2>
+          <p class="card-hint" id="zona-selected-label">Empresas disponibles</p>
+        </div>
+      </div>
+      <div id="empresa-grid" class="chip-grid" role="listbox" aria-label="Selecciona empresa operadora"></div>
+    </div>
+
+    <!-- ── PASO 3: Línea ── -->
+    <div id="step3" class="card step-card hidden" aria-live="polite">
+      <button class="back-btn" id="back2" aria-label="Volver a selección de empresa">← Volver</button>
+      <div class="card-header">
+        <span class="card-icon" aria-hidden="true">🚌</span>
+        <div>
+          <h2 class="card-title">Línea de bus</h2>
+          <p class="card-hint" id="empresa-selected-label">Líneas disponibles</p>
+        </div>
+      </div>
+      <div id="linea-grid" class="route-grid" role="listbox" aria-label="Selecciona línea de bus"></div>
+    </div>
+
+    <!-- ── PASO 4: Mapa ── -->
+    <div id="step4" class="card step-card hidden" aria-live="polite">
+      <button class="back-btn" id="back3" aria-label="Volver a selección de línea">← Volver</button>
+      <div class="card-header">
+        <span class="card-icon" aria-hidden="true">📍</span>
+        <div>
+          <h2 class="card-title">Selecciona tu parada</h2>
+          <p class="card-hint" id="linea-selected-label">Haz clic en una parada del mapa</p>
+        </div>
+      </div>
+      <div class="map-layout">
+        <div class="map-wrapper">
+          <div id="map" aria-label="Mapa de Quito con paradas de bus" tabindex="0"></div>
+        </div>
+        <div id="stop-panel" class="stop-panel" role="region" aria-live="polite" aria-label="Información de la parada">
+          <div class="stop-empty" id="stop-empty">
+            <svg width="40" height="40" viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="22" stroke="#DDE3EC" stroke-width="2"/><circle cx="24" cy="24" r="6" stroke="#DDE3EC" stroke-width="2"/><path d="M24 6v6M24 36v6M6 24h6M36 24h6" stroke="#DDE3EC" stroke-width="2" stroke-linecap="round"/></svg>
+            <p>Toca una parada<br/>en el mapa</p>
+          </div>
+          <div id="stop-content" class="hidden">
+            <div class="stop-panel-header">
+              <div class="stop-icon-name">
+                <span class="stop-dot" aria-hidden="true"></span>
+                <h3 id="stop-name">Parada</h3>
+              </div>
+            </div>
+            <div class="arrivals" id="arrivals-list"></div>
+            <p class="stop-note">Tiempos estimados · se actualizan cada 30 seg.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ──────────── FOOTER ──────────── -->
+<footer class="footer" role="contentinfo">
+  <div class="container footer-inner">
+    <div class="logo">
+      <svg class="logo-icon" viewBox="0 0 40 40" aria-hidden="true">
+        <rect width="40" height="40" rx="10" fill="#FF6B2B"/>
+        <rect x="7" y="14" width="26" height="16" rx="4" fill="white"/>
+        <circle cx="13" cy="31" r="3" fill="#1A3A5C"/>
+        <circle cx="27" cy="31" r="3" fill="#1A3A5C"/>
+        <rect x="10" y="9" width="20" height="7" rx="2" fill="white"/>
+        <rect x="9" y="17" width="7" height="5" rx="1" fill="#ADE0FF"/>
+        <rect x="18" y="17" width="7" height="5" rx="1" fill="#ADE0FF"/>
+      </svg>
+      <span class="logo-text">Bus<strong>Quito</strong></span>
+    </div>
+    <p class="footer-note">Información con fines educativos · IHC – PUCE · Tiempos aproximados, no representan datos reales.</p>
+  </div>
+</footer>
+
+<div id="toast" class="toast hidden" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+</body>
+</html>
