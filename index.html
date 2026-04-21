@@ -138,3 +138,89 @@
         </button>
       </div>
     </div>
+
+    <!-- ── PASO 2: Empresa (modal-style overlay dentro del card) ── -->
+    <div id="step2" class="card step-card hidden" aria-live="polite">
+      <button class="back-btn" id="back1" aria-label="Volver a selección de zona">← Volver</button>
+      <div class="card-header">
+        <span class="card-icon" aria-hidden="true">🏢</span>
+        <div>
+          <h2 class="card-title">Empresa operadora</h2>
+          <p class="card-hint" id="zona-selected-label">Empresas disponibles</p>
+        </div>
+      </div>
+      <div id="empresa-grid" class="chip-grid" role="listbox" aria-label="Selecciona empresa operadora"></div>
+    </div>
+
+    <!-- ── PASO 3: Línea ── -->
+    <div id="step3" class="card step-card hidden" aria-live="polite">
+      <button class="back-btn" id="back2" aria-label="Volver a selección de empresa">← Volver</button>
+      <div class="card-header">
+        <span class="card-icon" aria-hidden="true">🚌</span>
+        <div>
+          <h2 class="card-title">Línea de bus</h2>
+          <p class="card-hint" id="empresa-selected-label">Líneas disponibles</p>
+        </div>
+      </div>
+      <div id="linea-grid" class="route-grid" role="listbox" aria-label="Selecciona línea de bus"></div>
+    </div>
+
+    <!-- ── PASO 4: Mapa ── -->
+    <div id="step4" class="card step-card hidden" aria-live="polite">
+      <button class="back-btn" id="back3" aria-label="Volver a selección de línea">← Volver</button>
+      <div class="card-header">
+        <span class="card-icon" aria-hidden="true">📍</span>
+        <div>
+          <h2 class="card-title">Selecciona tu parada</h2>
+          <p class="card-hint" id="linea-selected-label">Haz clic en una parada del mapa</p>
+        </div>
+      </div>
+      <div class="map-layout">
+        <div class="map-wrapper">
+          <div id="map" aria-label="Mapa de Quito con paradas de bus" tabindex="0"></div>
+        </div>
+        <div id="stop-panel" class="stop-panel" role="region" aria-live="polite" aria-label="Información de la parada">
+          <div class="stop-empty" id="stop-empty">
+            <svg width="40" height="40" viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="22" stroke="#DDE3EC" stroke-width="2"/><circle cx="24" cy="24" r="6" stroke="#DDE3EC" stroke-width="2"/><path d="M24 6v6M24 36v6M6 24h6M36 24h6" stroke="#DDE3EC" stroke-width="2" stroke-linecap="round"/></svg>
+            <p>Toca una parada<br/>en el mapa</p>
+          </div>
+          <div id="stop-content" class="hidden">
+            <div class="stop-panel-header">
+              <div class="stop-icon-name">
+                <span class="stop-dot" aria-hidden="true"></span>
+                <h3 id="stop-name">Parada</h3>
+              </div>
+            </div>
+            <div class="arrivals" id="arrivals-list"></div>
+            <p class="stop-note">Tiempos estimados · se actualizan cada 30 seg.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ──────────── FOOTER ──────────── -->
+<footer class="footer" role="contentinfo">
+  <div class="container footer-inner">
+    <div class="logo">
+      <svg class="logo-icon" viewBox="0 0 40 40" aria-hidden="true">
+        <rect width="40" height="40" rx="10" fill="#FF6B2B"/>
+        <rect x="7" y="14" width="26" height="16" rx="4" fill="white"/>
+        <circle cx="13" cy="31" r="3" fill="#1A3A5C"/>
+        <circle cx="27" cy="31" r="3" fill="#1A3A5C"/>
+        <rect x="10" y="9" width="20" height="7" rx="2" fill="white"/>
+        <rect x="9" y="17" width="7" height="5" rx="1" fill="#ADE0FF"/>
+        <rect x="18" y="17" width="7" height="5" rx="1" fill="#ADE0FF"/>
+      </svg>
+      <span class="logo-text">Bus<strong>Quito</strong></span>
+    </div>
+    <p class="footer-note">Información con fines educativos · IHC – PUCE · Tiempos aproximados, no representan datos reales.</p>
+  </div>
+</footer>
+
+<div id="toast" class="toast hidden" role="alert" aria-live="assertive" aria-atomic="true"></div>
+
+</body>
+</html>
