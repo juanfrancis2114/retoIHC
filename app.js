@@ -1,889 +1,1140 @@
 /* ══════════════════════════════════════
-   BusQuito – Lógica principal
+   BusQuito – Lógica completa
    ══════════════════════════════════════ */
 
-// ─── 1. DATA POR ZONA ──────────────────────────────────────
-const ZONAS = {
-  norte: {
-    label: "Norte",
-    empresas: {
-      "Catar": [
-        { ruta: "113", nombre: "Marín – Carcelén", flota: 30 },
-        { ruta: "62",  nombre: "Ejido – Carcelén – Josefina", flota: 20 },
-        { ruta: "61",  nombre: "Ejido – Av. Eloy Alfaro – Carcelén Bajo", flota: 29 },
-        { ruta: "63",  nombre: "Carcelén – 6 de Diciembre – Don Bosco", flota: 0 },
-        { ruta: "130", nombre: "Pulida – Estadio Olímpico", flota: 13 },
-      ],
-      "Monserrat": [
-        { ruta: "30", nombre: "Marín – Carcelén Bajo", flota: 22 },
-        { ruta: "31", nombre: "Marianitas – San José de Morán – Estadio Olímpico", flota: 5 },
-      ],
-      "Alborada": [
-        { ruta: "143", nombre: "Atucucho – Comité del Pueblo", flota: 0 },
-        { ruta: "22",  nombre: "Marín – Estadio – Comité del Pueblo", flota: 30 },
-      ],
-      "Quiteño Libre": [
-        { ruta: "119", nombre: "Marín – Zona 11 (Comité del Pueblo)", flota: 0 },
-        { ruta: "118", nombre: "Marín – Quintana – Carmen Bajo", flota: 12 },
-      ],
-      "Guadalajara": [
-        { ruta: "09", nombre: "Pueblo Blanco – Comité del Pueblo – Congreso", flota: 25 },
-      ],
-      "Paquisha": [
-        { ruta: "74", nombre: "Ejido – Cotocollao – Machala – 23 de Junio", flota: 17 },
-      ],
-      "Águila Dorada": [
-        { ruta: "71",  nombre: "Congreso – Condado – Velasco", flota: 27 },
-        { ruta: "102", nombre: "La Planada – El Labrador", flota: 25 },
-        { ruta: "153", nombre: "Roldós – Estadio Olímpico – Jardín", flota: 0 },
-      ],
-      "Rapitrans": [
-        { ruta: "154", nombre: "Planada – Colinas del Norte – Marín", flota: 23 },
-      ],
-      "San Carlos": [
-        { ruta: "53", nombre: "Rancho Alto – Planada – Cotocollao – Los Arupos", flota: 0 },
-        { ruta: "55", nombre: "Tiwintza – Plan Techo – Cotocollao – Terminal Carcelén", flota: 0 },
-        { ruta: "89", nombre: "La Roldós – Occidental – La Magdalena", flota: 19 },
-        { ruta: "88", nombre: "Estadio de la Liga – Occidental – La Magdalena", flota: 21 },
-        { ruta: "51", nombre: "Atucucho – Occidental – La Magdalena", flota: 0 },
-        { ruta: "52", nombre: "Atucucho – Seminario Mayor", flota: 0 },
-      ],
-      "Transporsel (Norte)": [
-        { ruta: "99", nombre: "Babilonia – San Juan – Carapungo – Ejido", flota: 26 },
-        { ruta: "98", nombre: "Luz y Vida – Carapungo – Ejido", flota: 14 },
-      ],
-      "Transhemisféricos Mitad del Mundo": [
-        { ruta: "66", nombre: "San Vicente – Ejido", flota: 9 },
-      ],
-      "Semgyllfor": [
-        { ruta: "69", nombre: "Ciudad Bicentenario – Carapungo – Ejido", flota: 11 },
-      ],
-      "Calderón": [
-        { ruta: "161", nombre: "Pomasqui – Bicentenario – Naciones Unidas", flota: 0 },
-        { ruta: "162", nombre: "San Juan de Calderón – Naciones Unidas", flota: 0 },
-      ],
-      "San Juan": [
-        { ruta: "150", nombre: "Ana María – San Juan – Ofelia", flota: 0 },
-        { ruta: "151", nombre: "Las Antenas – Ofelia", flota: 0 },
-      ],
-      "Reino de Quito (Norte)": [
-        { ruta: "96", nombre: "Llano Chico – Edén – San Pablo", flota: 25 },
-        { ruta: "93", nombre: "Buenos Aires – La Carolina", flota: 0 },
-      ],
-    }
-  },
-
-  sur: {
-    label: "Sur",
-    empresas: {
-      "Transporsel (Sur)": [
-        { ruta: "97", nombre: "Marín – Chillogallo – Las Cuadras", flota: 10 },
-      ],
-      "TransLatina": [
-        { ruta: "67", nombre: "Marín – Chillogallo – 23 de Mayo", flota: 26 },
-      ],
-      "Urban Quito": [
-        { ruta: "56", nombre: "Marín – Avenida Simón Bolívar – Chillogallo", flota: 24 },
-      ],
-      "San Cristóbal": [
-        { ruta: "18", nombre: "Marín – San Luis de Chillogallo", flota: 22 },
-        { ruta: "29", nombre: "Marín – Ciudadela Ibarra – Huarcay", flota: 23 },
-        { ruta: "20", nombre: "Vista Hermosa – Puente de Guajaló", flota: 8 },
-      ],
-      "Quitumbe": [
-        { ruta: "48",  nombre: "Marín – Ciudadela del Ejército", flota: 18 },
-        { ruta: "08",  nombre: "Maternidad del Sur – Ciudadela del Ejército – San Roque", flota: 17 },
-        { ruta: "115", nombre: "Reino de Quito – Vicentina – San Pablo", flota: 19 },
-      ],
-      "Ecuatoriana": [
-        { ruta: "49",  nombre: "Marín – La Ecuatoriana – Santospamba", flota: 10 },
-        { ruta: "146", nombre: "Marín – La Ecuatoriana – Nuevos Horizontes – Manuelita Saenz", flota: 11 },
-        { ruta: "44",  nombre: "San Roque – La Ecuatoriana – Camal Metropolitano – 18 de Octubre", flota: 10 },
-        { ruta: "43",  nombre: "San Roque – La Ecuatoriana – Camal Metropolitano – Santa Anita del Sur", flota: 10 },
-      ],
-      "Transplaneta (Sur)": [
-        { ruta: "77",  nombre: "Marín – Guamaní – Venecia – Terranova", flota: 0 },
-        { ruta: "78",  nombre: "Marín – Garrochal – Santo Tomas 2 – Ciudad Jardín", flota: 0 },
-        { ruta: "12",  nombre: "Quitus Colonial – Guajaló – Centro Histórico – UCE", flota: 21 },
-        { ruta: "46B", nombre: "San José de Cutuglagua – San Roque", flota: 13 },
-        { ruta: "46",  nombre: "Santo Domingo de Cutuglagua – San Roque", flota: 0 },
-      ],
-      "7 de Mayo": [
-        { ruta: "144", nombre: "Marín – Guamaní – El Rocío", flota: 16 },
-        { ruta: "145", nombre: "Marín – Guamaní – Paquisha", flota: 17 },
-      ],
-      "Juan Pablo II": [
-        { ruta: "126", nombre: "Marín – Guamaní Alto – El Porvenir", flota: 18 },
-        { ruta: "121", nombre: "Marín – Solanda – Terminal Quitumbe", flota: 17 },
-        { ruta: "125", nombre: "San Roque – Guamaní – Cdla. Lozada", flota: 14 },
-      ],
-      "Disutransa": [
-        { ruta: "32", nombre: "San Roque – Quitumbe – El Porvenir", flota: 14 },
-        { ruta: "34", nombre: "El Tejar – Guajaló – Nueva Aurora", flota: 18 },
-      ],
-      "6 de Diciembre": [
-        { ruta: "157", nombre: "Caupicho – El Troje – Avenida Simón Bolívar – Marín", flota: 0 },
-        { ruta: "14",  nombre: "La Cocha – San Martín – Villaflora", flota: 18 },
-      ],
-      "Vencedores Sur": [
-        { ruta: "47", nombre: "El Recreo – Ciudadela Tarqui", flota: 10 },
-        { ruta: "45", nombre: "Marín – Reino de Quito", flota: 10 },
-        { ruta: "28", nombre: "Caupicho – Universidad Central", flota: 19 },
-      ],
-      "Tran Zeta": [
-        { ruta: "90", nombre: "Forestal – San Isidro del Inca", flota: 12 },
-        { ruta: "91", nombre: "Forestal – San Patricio – Chilibulo", flota: 6 },
-      ],
-      "Lujoturissa": [
-        { ruta: "76", nombre: "La Joya – Cutuglagua – Universidad Central", flota: 20 },
-      ],
-      "Metrotrans": [
-        { ruta: "140", nombre: "San Fernando de Guamaní – Av. Oriental – Estadio Olímpico", flota: 22 },
-        { ruta: "141", nombre: "El Rocío de Guamaní – San Roque – Estadio Olímpico", flota: 21 },
-      ],
-      "San Francisco": [
-        { ruta: "27", nombre: "24 de Mayo – Chillogallo – San Marcelo", flota: 12 },
-      ],
-      "Translatinos": [
-        { ruta: "135", nombre: "El Beaterio – Seminario Mayor", flota: 44 },
-      ],
-      "Bellavista": [
-        { ruta: "06", nombre: "Guajaló – Turubamba – San Juan – Toctiuco", flota: 22 },
-      ],
-      "Victoria (Sur)": [
-        { ruta: "19", nombre: "Oriente Quiteño – La Gasca", flota: 21 },
-      ],
-    }
-  },
-
-  centro: {
-    label: "Centro",
-    empresas: {
-      "Victoria": [
-        { ruta: "02", nombre: "Colón – Camal", flota: 26 },
-      ],
-      "Cía. Nacional": [
-        { ruta: "25", nombre: "Camal – Hipódromo", flota: 23 },
-      ],
-      "Vencedores Centro": [
-        { ruta: "03", nombre: "La Colmena – Universidad Central", flota: 17 },
-        { ruta: "05", nombre: "Atacazo – Libertad – Universidad Central", flota: 14 },
-      ],
-      "Trans Alfa": [
-        { ruta: "131", nombre: "Obrero Independiente – La Comuna", flota: 18 },
-        { ruta: "132", nombre: "Primavera – Las Casas – Balcón del Valle", flota: 25 },
-      ],
-      "Transplaneta Centro": [
-        { ruta: "40", nombre: "Las Casas – Alma Lojana – Buenos Aires", flota: 16 },
-      ],
-      "Mariscal Sucre": [
-        { ruta: "83", nombre: "Hospital Metropolitano – Orquídeas – El Guabo", flota: 17 },
-        { ruta: "84", nombre: "Colegio Juan Montalvo – UCE – Monserrat – Focalpi", flota: 19 },
-        { ruta: "85", nombre: "Colegio Juan Montalvo – UCE – 6 de Diciembre – Chachas", flota: 0 },
-      ],
-      "Collectrans": [
-        { ruta: "134", nombre: "Camal – Aeropuerto", flota: 23 },
-      ],
-      "21 de Julio": [
-        { ruta: "107", nombre: "Chorrera – Marín", flota: 0 },
-        { ruta: "108", nombre: "Chorrera – Bolivia – Toctiuco", flota: 0 },
-        { ruta: "109", nombre: "San Salvador – Colegio Mejía – Carchi", flota: 0 },
-        { ruta: "110", nombre: "Chorrera – Seminario Mayor", flota: 0 },
-      ],
-      "Transmetropoli": [
-        { ruta: "82", nombre: "Monjas Alto – El Dorado", flota: 0 },
-        { ruta: "83", nombre: "Edén del Valle – 1 de Mayo – El Dorado", flota: 0 },
-        { ruta: "81", nombre: "San Isidro de Puengasí – Escuela Sucre", flota: 7 },
-      ],
-    }
-  }
+// ─── STATE ─────────────────────────────────────────────────
+const APP = {
+  screen: "home",
+  origin: null,      // sector id
+  dest: null,        // sector id
+  results: [],       // route results
+  selectedRoute: null,
+  user: null,        // { name, email } o null
+  favorites: [],     // [{ origin, dest, label }]
+  history: [],       // [{ origin, dest, label, date }]
+  maps: {},          // leaflet map instances
 };
 
-// ─── 2. PARADAS ────────────────────────────────────────────
-const PARADAS_POR_ZONA = {
-  norte: [
-    { name: "Terminal Carcelén",   lat: -0.0715, lng: -78.4759 },
-    { name: "Carcelén",            lat: -0.0779, lng: -78.4792 },
-    { name: "El Condado",          lat: -0.1258, lng: -78.5088 },
-    { name: "Cotocollao",          lat: -0.1148, lng: -78.5015 },
-    { name: "Comité del Pueblo",   lat: -0.1115, lng: -78.4511 },
-    { name: "Carapungo",           lat: -0.0906, lng: -78.4426 },
-    { name: "Naciones Unidas",     lat: -0.1726, lng: -78.4844 },
-    { name: "La Carolina",         lat: -0.1828, lng: -78.4862 },
-    { name: "Atucucho",            lat: -0.1601, lng: -78.5261 },
-    { name: "La Roldós",           lat: -0.1352, lng: -78.5175 },
-    { name: "La Planada",          lat: -0.1041, lng: -78.5050 },
-    { name: "San Juan de Calderón",lat: -0.0820, lng: -78.4250 },
-  ],
-  sur: [
-    { name: "Marín",               lat: -0.2232, lng: -78.5120 },
-    { name: "Solanda",             lat: -0.2651, lng: -78.5175 },
-    { name: "Chillogallo",         lat: -0.2952, lng: -78.5350 },
-    { name: "Guamaní",             lat: -0.3357, lng: -78.5528 },
-    { name: "Quitumbe",            lat: -0.3148, lng: -78.5551 },
-    { name: "La Ecuatoriana",      lat: -0.2975, lng: -78.5610 },
-    { name: "El Recreo",           lat: -0.2713, lng: -78.5420 },
-    { name: "Villaflora",          lat: -0.2540, lng: -78.5130 },
-    { name: "La Magdalena",        lat: -0.2418, lng: -78.5275 },
-    { name: "El Beaterio",         lat: -0.3480, lng: -78.5600 },
-    { name: "San Roque",           lat: -0.2258, lng: -78.5220 },
-    { name: "Caupicho",            lat: -0.3200, lng: -78.5700 },
-  ],
-  centro: [
-    { name: "Universidad Central", lat: -0.2102, lng: -78.5094 },
-    { name: "Colón",               lat: -0.1982, lng: -78.4955 },
-    { name: "El Ejido",            lat: -0.2084, lng: -78.4986 },
-    { name: "Centro Histórico",    lat: -0.2200, lng: -78.5120 },
-    { name: "Camal Metropolitano", lat: -0.2490, lng: -78.5000 },
-    { name: "San Juan",            lat: -0.2189, lng: -78.5148 },
-    { name: "La Gasca",            lat: -0.2002, lng: -78.5052 },
-    { name: "Occidental",          lat: -0.1890, lng: -78.5130 },
-    { name: "Seminario Mayor",     lat: -0.1812, lng: -78.5142 },
-    { name: "Toctiuco",            lat: -0.2150, lng: -78.5200 },
-    { name: "Las Casas",           lat: -0.2030, lng: -78.5180 },
-    { name: "El Dorado",           lat: -0.2350, lng: -78.4900 },
-  ],
-};
-
-const ZONA_CENTER = {
-  norte:  { lat: -0.130, lng: -78.492, zoom: 12 },
-  sur:    { lat: -0.280, lng: -78.540, zoom: 12 },
-  centro: { lat: -0.210, lng: -78.510, zoom: 13 },
-};
-
-// ─── 3. STATE ──────────────────────────────────────────────
-const state = {
-  zona: null,
-  empresa: null,
-  linea: null,
-  step: 1,
-  map: null,
-  markers: [],
-  polyline: null,
-  activeMarkerEl: null,
-  stopRefreshTimer: null,
-};
-
-// ─── 4. UTILS DE TEXTO ─────────────────────────────────────
-function normalizeText(text) {
-  return String(text)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function escapeAttr(str) {
-  return String(str).replace(/"/g, "&quot;");
-}
-
-// ─── 5. INIT ───────────────────────────────────────────────
+// ─── INIT ──────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
-  Object.entries(ZONAS).forEach(([key, z]) => {
-    const el = document.getElementById(`count-${key}`);
-    if (el) {
-      const n = Object.keys(z.empresas).length;
-      el.textContent = `${n} empresa${n !== 1 ? "s" : ""}`;
-    }
-  });
-
-  document.querySelectorAll(".zone-card").forEach(card => {
-    const zone = card.dataset.zone;
-    card.addEventListener("click", () => selectZona(zone));
-    card.addEventListener("keydown", e => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        selectZona(zone);
-      }
-    });
-    card.setAttribute("tabindex", "0");
-  });
-
-  document.getElementById("back1").addEventListener("click", goToStep1);
-  document.getElementById("back2").addEventListener("click", goToStep2);
-  document.getElementById("back3").addEventListener("click", goToStep3);
-
-  document.getElementById("logo-link").addEventListener("click", e => {
-    e.preventDefault();
-    goToStep1();
-  });
-
+  loadStorage();
+  initA11y();
   initSearch();
-
-  document.addEventListener("click", e => {
-    const wrapper = document.getElementById("search-wrapper");
-    if (wrapper && !wrapper.contains(e.target)) closeDropdown();
-  });
+  initExpertSearch();
+  initLiveCard();
+  initQuickSectors();
+  initNav();
+  initAuth();
+  initFilters();
+  updateAccountLabel();
+  initMapPicker();
 });
 
-// ─── 6. SEARCH ─────────────────────────────────────────────
-function buildSearchIndex() {
-  const index = [];
+// ─── STORAGE ───────────────────────────────────────────────
+function loadStorage() {
+  try {
+    const u = localStorage.getItem("bq_user");
+    if (u) APP.user = JSON.parse(u);
+    const f = localStorage.getItem("bq_fav");
+    if (f) APP.favorites = JSON.parse(f);
+    const h = localStorage.getItem("bq_hist");
+    if (h) APP.history = JSON.parse(h);
+  } catch(e) {}
+}
+function saveStorage() {
+  localStorage.setItem("bq_user", JSON.stringify(APP.user));
+  localStorage.setItem("bq_fav",  JSON.stringify(APP.favorites));
+  localStorage.setItem("bq_hist", JSON.stringify(APP.history));
+}
 
-  Object.entries(ZONAS).forEach(([zonaKey, zona]) => {
-    const empresasAgregadas = new Set();
+// ─── NAVEGACIÓN ENTRE PANTALLAS ────────────────────────────
+function showScreen(name) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById("screen-" + name).classList.add("active");
+  APP.screen = name;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  // Update nav active state
+  ["home","favorites","history"].forEach(n => {
+    const btn = document.getElementById("nav-" + n);
+    if (btn) btn.classList.toggle("active", n === name);
+  });
+}
 
-    Object.entries(zona.empresas).forEach(([empKey, rutas]) => {
-      const displayName = empKey.replace(/ \((Norte|Sur|Centro)\)$/, "");
+function initNav() {
+  document.getElementById("nav-home").addEventListener("click", () => showScreen("home"));
+  document.getElementById("nav-favorites").addEventListener("click", () => { renderFavorites(); showScreen("favorites"); });
+  document.getElementById("nav-history").addEventListener("click", () => { renderHistory(); showScreen("history"); });
+  document.getElementById("logo-home").addEventListener("click", e => { e.preventDefault(); showScreen("home"); });
+  document.getElementById("btn-account").addEventListener("click", () => { renderProfile(); showScreen("account"); });
+  document.getElementById("back-from-results").addEventListener("click", () => showScreen("home"));
+  document.getElementById("back-from-detail").addEventListener("click", () => showScreen("results"));
+  document.getElementById("back-from-fav").addEventListener("click", () => showScreen("home"));
+  document.getElementById("back-from-hist").addEventListener("click", () => showScreen("home"));
+  document.getElementById("back-from-account").addEventListener("click", () => showScreen("home"));
+  document.getElementById("swap-mini").addEventListener("click", swapPlaces);
+  document.getElementById("clear-hist").addEventListener("click", clearHistory);
+  document.getElementById("fav-btn").addEventListener("click", toggleFavorite);
 
-      if (!empresasAgregadas.has(displayName + zonaKey)) {
-        empresasAgregadas.add(displayName + zonaKey);
-        index.push({
-          type: "empresa",
-          zona: zonaKey,
-          zonaLabel: zona.label,
-          empKey,
-          displayName,
-          searchText: normalizeText(`${displayName} ${zonaKey} ${zona.label}`),
-        });
-      }
+  // ESC closes confirmation modal
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      const overlay = document.getElementById("modal-overlay");
+      if (overlay && !overlay.classList.contains("hidden")) closeModal();
+    }
+  });
+}
 
-      rutas.forEach(r => {
-        index.push({
-          type: "ruta",
-          zona: zonaKey,
-          zonaLabel: zona.label,
-          empKey,
-          displayName,
-          ruta: r.ruta,
-          nombre: r.nombre,
-          flota: r.flota,
-          searchText: normalizeText(`linea ${r.ruta} ${r.nombre} ${displayName} ${zona.label}`),
-        });
-      });
+// ─── BÚSQUEDA PRINCIPAL ─────────────────────────────────────
+function initSearch() {
+  const inOrigin = document.getElementById("input-origin");
+  const inDest   = document.getElementById("input-dest");
+  const btnSearch = document.getElementById("btn-search");
+  const btnSwap   = document.getElementById("btn-swap");
+
+  setupAutocomplete(inOrigin, "ac-origin", id => {
+    APP.origin = id;
+    checkSearchReady();
+  });
+  setupAutocomplete(inDest, "ac-dest", id => {
+    APP.dest = id;
+    checkSearchReady();
+  });
+
+  // Clear buttons
+  document.querySelectorAll(".sf-clear").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const target = document.getElementById(btn.dataset.target);
+      target.value = "";
+      btn.classList.add("hidden");
+      if (btn.dataset.target === "input-origin") APP.origin = null;
+      else APP.dest = null;
+      checkSearchReady();
+      target.focus();
     });
   });
 
-  return index;
-}
-
-let searchIndex = null;
-
-function initSearch() {
-  searchIndex = buildSearchIndex();
-
-  const input = document.getElementById("search-input");
-  const clearBtn = document.getElementById("search-clear");
-  const dropdown = document.getElementById("search-dropdown");
-
-  input.addEventListener("input", () => {
-    const q = input.value.trim();
-    clearBtn.classList.toggle("hidden", q.length === 0);
-
-    if (q.length === 0) {
-      closeDropdown();
-      return;
-    }
-
-    renderDropdown(q);
+  // Input events to show/hide clear
+  [inOrigin, inDest].forEach(inp => {
+    inp.addEventListener("input", () => {
+      const clearBtn = inp.parentElement.querySelector(".sf-clear");
+      clearBtn.classList.toggle("hidden", inp.value.trim() === "");
+      // Reset stored id when typing
+      if (inp.id === "input-origin") APP.origin = null;
+      else APP.dest = null;
+      checkSearchReady();
+    });
   });
 
-  input.addEventListener("focus", () => {
-    const q = input.value.trim();
-    if (q.length > 0) renderDropdown(q);
+  btnSearch.addEventListener("click", doSearch);
+  btnSwap.addEventListener("click", swapPlaces);
+  document.addEventListener("keydown", e => {
+    if (e.key === "Enter" && APP.origin && APP.dest) doSearch();
+  });
+}
+
+function checkSearchReady() {
+  const btn = document.getElementById("btn-search");
+  btn.disabled = !(APP.origin && APP.dest && APP.origin !== APP.dest);
+}
+
+function setupAutocomplete(input, listId, onSelect) {
+  const list = document.getElementById(listId);
+
+  input.addEventListener("input", () => {
+    const q = input.value.trim().toLowerCase();
+    if (q.length < 1) { list.hidden = true; return; }
+
+    const matches = SECTORS.filter(s =>
+      s.name.toLowerCase().includes(q) ||
+      s.zona.includes(q)
+    ).slice(0, 7);
+
+    list.innerHTML = "";
+    list.hidden = matches.length === 0;
+
+    matches.forEach((s, i) => {
+      const li = document.createElement("li");
+      li.className = "ac-item";
+      li.setAttribute("role", "option");
+      li.setAttribute("tabindex", "-1");
+      li.setAttribute("aria-label", `${s.name}, zona ${s.zona}`);
+      li.innerHTML = `
+        <span class="ac-icon zona-${s.zona}" aria-hidden="true">
+          ${s.zona === "norte" ? "↑" : s.zona === "sur" ? "↓" : "◎"}
+        </span>
+        <span class="ac-name">${highlight(s.name, input.value.trim())}</span>
+        <span class="ac-zona">${s.zona}</span>
+      `;
+      li.addEventListener("mousedown", e => {
+        e.preventDefault();
+        input.value = s.name;
+        list.hidden = true;
+        onSelect(s.id);
+        input.parentElement.querySelector(".sf-clear").classList.remove("hidden");
+      });
+      li.addEventListener("keydown", e => {
+        if (e.key === "Enter") { li.dispatchEvent(new MouseEvent("mousedown")); }
+        if (e.key === "ArrowDown") { li.nextElementSibling?.focus(); }
+        if (e.key === "ArrowUp") { li.previousElementSibling?.focus() ?? input.focus(); }
+        if (e.key === "Escape") { list.hidden = true; input.focus(); }
+      });
+      list.appendChild(li);
+    });
   });
 
   input.addEventListener("keydown", e => {
-    if (e.key === "Escape") {
-      closeDropdown();
-      input.blur();
-    }
-
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      const first = dropdown.querySelector(".search-result-item");
-      if (first) first.focus();
+      list.querySelector(".ac-item")?.focus();
     }
+    if (e.key === "Escape") { list.hidden = true; }
   });
 
-  clearBtn.addEventListener("click", () => {
-    input.value = "";
-    clearBtn.classList.add("hidden");
-    closeDropdown();
-    input.focus();
-  });
-
-  dropdown.addEventListener("keydown", e => {
-    const items = [...dropdown.querySelectorAll(".search-result-item")];
-    const idx = items.indexOf(document.activeElement);
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      const next = items[idx + 1];
-      if (next) next.focus();
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      if (idx === 0) {
-        input.focus();
-      } else {
-        const prev = items[idx - 1];
-        if (prev) prev.focus();
-      }
-    } else if (e.key === "Escape") {
-      closeDropdown();
-      input.focus();
-    }
+  document.addEventListener("click", e => {
+    if (!e.target.closest(`#${listId}`) && e.target !== input) list.hidden = true;
   });
 }
 
-function renderDropdown(query) {
-  const dropdown = document.getElementById("search-dropdown");
-  const q = normalizeText(query.trim());
+function highlight(text, query) {
+  if (!query) return text;
+  const re = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, "gi");
+  return text.replace(re, "<mark>$1</mark>");
+}
 
-  const results = searchIndex
-    .filter(item => item.searchText.includes(q))
-    .slice(0, 18);
+function swapPlaces() {
+  const io = document.getElementById("input-origin");
+  const id = document.getElementById("input-dest");
+  [io.value, id.value] = [id.value, io.value];
+  [APP.origin, APP.dest] = [APP.dest, APP.origin];
+  // clear buttons visibility
+  io.parentElement.querySelector(".sf-clear").classList.toggle("hidden", !io.value);
+  id.parentElement.querySelector(".sf-clear").classList.toggle("hidden", !id.value);
+  checkSearchReady();
+  showToast("Origen y destino intercambiados");
+}
 
-  if (results.length === 0) {
-    dropdown.innerHTML = `<div class="search-empty">Sin resultados para "<strong>${escapeHtml(query)}</strong>"</div>`;
-    dropdown.classList.remove("hidden");
-    document.getElementById("search-input").setAttribute("aria-expanded", "true");
+function doSearch() {
+  if (!APP.origin || !APP.dest) return;
+  const originSector = SECTOR_BY_ID[APP.origin];
+  const destSector   = SECTOR_BY_ID[APP.dest];
+  if (!originSector || !destSector) { showToast("Selecciona sectores válidos"); return; }
+
+  APP.results = findRoutes(APP.origin, APP.dest);
+
+  // Guardar en historial
+  const entry = {
+    origin: APP.origin,
+    dest: APP.dest,
+    label: `${originSector.name} → ${destSector.name}`,
+    date: new Date().toLocaleDateString("es-EC", { day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit" }),
+  };
+  APP.history = [entry, ...APP.history.filter(h => h.label !== entry.label)].slice(0, 20);
+  saveStorage();
+
+  renderResults();
+  showScreen("results");
+}
+
+// ─── RESULTADOS ─────────────────────────────────────────────
+function renderResults() {
+  const originSector = SECTOR_BY_ID[APP.origin];
+  const destSector   = SECTOR_BY_ID[APP.dest];
+
+  // Trip summary
+  document.getElementById("trip-summary").innerHTML = `
+    <span class="ts-origin"><span class="ts-dot o-dot"></span>${originSector.name}</span>
+    <span class="ts-arrow">→</span>
+    <span class="ts-dest"><span class="ts-dot d-dot"></span>${destSector.name}</span>
+  `;
+
+  renderResultsList(APP.results);
+  initResultsMap();
+}
+
+function renderResultsList(routes) {
+  const list = document.getElementById("results-list");
+  list.innerHTML = "";
+
+  if (routes.length === 0) {
+    list.innerHTML = `
+      <div class="no-results">
+        <svg width="56" height="56" viewBox="0 0 56 56" fill="none" aria-hidden="true">
+          <circle cx="28" cy="28" r="26" stroke="#DDE3EC" stroke-width="2"/>
+          <path d="M20 28h16M28 20v16" stroke="#DDE3EC" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+        <h3>Sin rutas directas encontradas</h3>
+        <p>Intenta con sectores más cercanos o usa la búsqueda experta para encontrar la línea manualmente.</p>
+        <button class="btn-outline" onclick="showScreen('home')">Cambiar búsqueda</button>
+      </div>`;
     return;
   }
 
-  const rutas = results.filter(r => r.type === "ruta");
-  const empresas = results.filter(r => r.type === "empresa");
+  routes.forEach((result, idx) => {
+    const card = document.createElement("div");
+    card.className = `result-card ${result.type}`;
+    card.setAttribute("role", "article");
+    card.setAttribute("aria-label", `Opción ${idx + 1}: ${result.type === "direct" ? "Ruta directa" : "Con transbordo"}`);
 
-  let html = "";
+    const leg1 = result.legs[0];
+    const leg2 = result.legs[1] || null;
 
-  if (rutas.length > 0) {
-    html += `<div class="search-group-label">Líneas de bus</div>`;
-    rutas.slice(0, 10).forEach(item => {
-      html += `
-        <button class="search-result-item" role="option"
-          data-zona="${item.zona}"
-          data-emp="${escapeAttr(item.empKey)}"
-          data-ruta='${escapeAttr(JSON.stringify({ ruta: item.ruta, nombre: item.nombre, flota: item.flota }))}'>
-          <span class="sri-badge">${item.ruta}</span>
-          <span class="sri-info">
-            <span class="sri-name">${escapeHtml(item.nombre)}</span>
-            <span class="sri-meta">${escapeHtml(item.displayName)}</span>
-          </span>
-          <span class="sri-zone ${item.zona}">${item.zonaLabel}</span>
-        </button>`;
-    });
-  }
+    card.innerHTML = `
+      <div class="rc-header">
+        <div class="rc-badges">
+          <span class="rc-type ${result.type}">${result.type === "direct" ? "🟢 Directa" : "🔵 Transbordo"}</span>
+          <span class="rc-time" aria-label="${result.estimatedMin} minutos estimados">~${result.estimatedMin} min</span>
+        </div>
+        ${isFavorite(APP.origin, APP.dest) ? '<span class="rc-fav-badge" aria-label="Guardada en favoritos">⭐</span>' : ''}
+      </div>
 
-  if (empresas.length > 0) {
-    html += `<div class="search-group-label">Empresas operadoras</div>`;
-    empresas.slice(0, 6).forEach(item => {
-      const rutaCount = ZONAS[item.zona].empresas[item.empKey]?.length || 0;
-      html += `
-        <button class="search-result-item" role="option"
-          data-zona="${item.zona}"
-          data-emp="${escapeAttr(item.empKey)}">
-          <span class="sri-badge empresa">EMP</span>
-          <span class="sri-info">
-            <span class="sri-name">${escapeHtml(item.displayName)}</span>
-            <span class="sri-meta">${rutaCount} línea${rutaCount !== 1 ? "s" : ""}</span>
-          </span>
-          <span class="sri-zone ${item.zona}">${item.zonaLabel}</span>
-        </button>`;
-    });
-  }
+      <div class="rc-legs">
+        <div class="rc-leg">
+          <div class="rc-line-badge" style="background:${leg1.route.color}" aria-label="Línea ${leg1.route.linea}">${leg1.route.linea}</div>
+          <div class="rc-leg-info">
+            <div class="rc-empresa">${leg1.route.empresa}</div>
+            <div class="rc-leg-path">
+              <span class="rc-stop-a">${SECTOR_BY_ID[leg1.from]?.name}</span>
+              <span class="rc-stops-count" aria-label="${leg1.stops.length - 1} paradas">${leg1.stops.length - 1} paradas</span>
+              <span class="rc-stop-b">${SECTOR_BY_ID[leg1.to]?.name}</span>
+            </div>
+          </div>
+        </div>
 
-  dropdown.innerHTML = html;
-  dropdown.classList.remove("hidden");
-  document.getElementById("search-input").setAttribute("aria-expanded", "true");
+        ${leg2 ? `
+        <div class="rc-transfer-hint" aria-label="Transbordo en ${SECTOR_BY_ID[result.transferStop]?.name}">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M7 2v10M4 9l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Bajar en <strong>${SECTOR_BY_ID[result.transferStop]?.name}</strong> · Subir a línea ${leg2.route.linea}
+        </div>
+        <div class="rc-leg">
+          <div class="rc-line-badge" style="background:${leg2.route.color}" aria-label="Línea ${leg2.route.linea}">${leg2.route.linea}</div>
+          <div class="rc-leg-info">
+            <div class="rc-empresa">${leg2.route.empresa}</div>
+            <div class="rc-leg-path">
+              <span class="rc-stop-a">${SECTOR_BY_ID[leg2.from]?.name}</span>
+              <span class="rc-stops-count" aria-label="${leg2.stops.length - 1} paradas">${leg2.stops.length - 1} paradas</span>
+              <span class="rc-stop-b">${SECTOR_BY_ID[leg2.to]?.name}</span>
+            </div>
+          </div>
+        </div>` : ""}
+      </div>
 
-  dropdown.querySelectorAll(".search-result-item").forEach(btn => {
-    btn.addEventListener("click", () => handleSearchSelect(btn));
-    btn.addEventListener("keydown", e => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        handleSearchSelect(btn);
-      }
-    });
-  });
-}
-
-function handleSearchSelect(btn) {
-  const zona = btn.dataset.zona;
-  const empKey = btn.dataset.emp;
-  const rutaRaw = btn.dataset.ruta;
-
-  closeDropdown();
-  document.getElementById("search-input").value = "";
-  document.getElementById("search-clear").classList.add("hidden");
-
-  if (rutaRaw) {
-    const r = JSON.parse(rutaRaw);
-    state.zona = zona;
-    state.empresa = empKey;
-    state.linea = r;
-    document.getElementById("linea-selected-label").textContent = `Línea ${r.ruta} · ${r.nombre}`;
-    showStep(4);
-    showToast(`Línea ${r.ruta} · ${r.nombre}`);
-    requestAnimationFrame(() => setTimeout(initMap, 80));
-  } else {
-    state.zona = zona;
-    state.empresa = empKey;
-    const displayName = empKey.replace(/ \((Norte|Sur|Centro)\)$/, "");
-    renderLineas(empKey, displayName);
-    showStep(3);
-    showToast(displayName);
-  }
-}
-
-function closeDropdown() {
-  const dropdown = document.getElementById("search-dropdown");
-  if (dropdown) {
-    dropdown.classList.add("hidden");
-    dropdown.innerHTML = "";
-  }
-
-  const input = document.getElementById("search-input");
-  if (input) input.setAttribute("aria-expanded", "false");
-}
-
-// ─── 7. ZONA ───────────────────────────────────────────────
-function selectZona(zona) {
-  state.zona = zona;
-  state.empresa = null;
-  state.linea = null;
-  renderEmpresas(zona);
-  showStep(2);
-  showToast(`Zona ${ZONAS[zona].label} seleccionada`);
-}
-
-// ─── 8. EMPRESA ────────────────────────────────────────────
-function renderEmpresas(zona) {
-  const grid = document.getElementById("empresa-grid");
-  const label = document.getElementById("zona-selected-label");
-
-  label.textContent = `Zona ${ZONAS[zona].label} · elige tu empresa`;
-  grid.innerHTML = "";
-
-  const empresas = Object.keys(ZONAS[zona].empresas).sort();
-
-  empresas.forEach(emp => {
-    const btn = document.createElement("button");
-    btn.className = "chip";
-
-    const displayName = emp.replace(/ \((Norte|Sur|Centro)\)$/, "");
-    btn.textContent = displayName;
-    btn.setAttribute("role", "option");
-    btn.setAttribute("aria-label", `Seleccionar ${displayName}`);
-    btn.setAttribute("tabindex", "0");
-
-    btn.addEventListener("click", () => selectEmpresa(emp, displayName));
-    btn.addEventListener("keydown", e => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        selectEmpresa(emp, displayName);
-      }
-    });
-
-    grid.appendChild(btn);
-  });
-}
-
-function selectEmpresa(emp, displayName) {
-  state.empresa = emp;
-  renderLineas(emp, displayName || emp);
-  showStep(3);
-  showToast(displayName || emp);
-}
-
-// ─── 9. LÍNEA ──────────────────────────────────────────────
-function renderLineas(emp, displayName) {
-  const grid = document.getElementById("linea-grid");
-  const label = document.getElementById("empresa-selected-label");
-
-  label.textContent = displayName || emp;
-  grid.innerHTML = "";
-
-  const rutas = ZONAS[state.zona].empresas[emp] || [];
-
-  rutas.forEach(r => {
-    const btn = document.createElement("button");
-    btn.className = "route-item";
-    btn.setAttribute("role", "option");
-    btn.setAttribute("aria-label", `Línea ${r.ruta} – ${r.nombre}${r.flota ? ", " + r.flota + " buses" : ""}`);
-    btn.innerHTML = `
-      <span class="route-badge">${r.ruta}</span>
-      <span class="route-name">${r.nombre}</span>
-      ${r.flota ? `<span class="route-fleet" aria-hidden="true">
-        <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
-          <rect x="1" y="4" width="12" height="7" rx="2" stroke="#6B7A92" stroke-width="1.2"/>
-          <circle cx="4" cy="11.5" r="1.2" fill="#6B7A92"/>
-          <circle cx="10" cy="11.5" r="1.2" fill="#6B7A92"/>
-          <rect x="3" y="2" width="8" height="3" rx="1" stroke="#6B7A92" stroke-width="1.2"/>
-        </svg>
-        ${r.flota}
-      </span>` : ""}
+      <div class="rc-footer">
+        <button class="rc-detail-btn" data-idx="${idx}" aria-label="Ver detalle de esta ruta">
+          Ver paso a paso →
+        </button>
+        <div class="rc-meta">
+          <span>${result.totalStops} paradas</span>
+          ${result.transfers > 0 ? `<span>· ${result.transfers} transbordo</span>` : ""}
+        </div>
+      </div>
     `;
 
-    btn.addEventListener("click", () => selectLinea(r));
-    grid.appendChild(btn);
+    card.querySelector(".rc-detail-btn").addEventListener("click", () => {
+      APP.selectedRoute = result;
+      renderDetail(result);
+      showScreen("detail");
+    });
+
+    list.appendChild(card);
   });
 }
 
-function selectLinea(r) {
-  state.linea = r;
-  const label = document.getElementById("linea-selected-label");
-  label.textContent = `Línea ${r.ruta} · ${r.nombre}`;
-  showStep(4);
-  showToast(`Línea ${r.ruta}`);
-  requestAnimationFrame(() => setTimeout(initMap, 80));
+function initFilters() {
+  document.querySelectorAll(".filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      const filter = btn.dataset.filter;
+      let filtered = [...APP.results];
+      if (filter === "direct") filtered = filtered.filter(r => r.type === "direct");
+      if (filter === "transfer") filtered = filtered.filter(r => r.type === "transfer");
+      if (filter === "fast") filtered = [...filtered].sort((a,b) => a.estimatedMin - b.estimatedMin);
+      renderResultsList(filtered);
+    });
+  });
 }
 
-// ─── 10. MAPA ──────────────────────────────────────────────
-function initMap() {
-  if (state.map) {
-    state.map.remove();
-    state.map = null;
-  }
+// ─── DETALLE ───────────────────────────────────────────────
+function renderDetail(result) {
+  const originSector = SECTOR_BY_ID[APP.origin];
+  const destSector   = SECTOR_BY_ID[APP.dest];
+  document.getElementById("detail-title").textContent =
+    `${originSector.name} → ${destSector.name}`;
 
-  state.markers = [];
-  state.activeMarkerEl = null;
+  // Actualizar botón favorito
+  const favBtn = document.getElementById("fav-btn");
+  const isF = isFavorite(APP.origin, APP.dest);
+  favBtn.setAttribute("aria-pressed", isF.toString());
+  favBtn.innerHTML = isF
+    ? `<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 17l-7-7a4 4 0 0 1 5.657-5.657L10 5.686l1.343-1.343A4 4 0 0 1 17 10l-7 7z"/></svg> Guardado`
+    : `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 17l-7-7a4 4 0 0 1 5.657-5.657L10 5.686l1.343-1.343A4 4 0 0 1 17 10l-7 7z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg> Guardar`;
+  favBtn.classList.toggle("saved", isF);
 
-  document.getElementById("stop-empty").classList.remove("hidden");
-  document.getElementById("stop-content").classList.add("hidden");
+  // Steps
+  const stepsEl = document.getElementById("detail-steps");
+  stepsEl.innerHTML = "";
 
-  const c = ZONA_CENTER[state.zona];
-  const map = L.map("map", { zoomControl: true }).setView([c.lat, c.lng], c.zoom);
-  state.map = map;
+  // Step: caminar al paradero de origen
+  stepsEl.appendChild(makeStep("walk", `Dirígete al paradero en <strong>${originSector.name}</strong>`, null, "Busca las señales de parada de bus"));
 
+  result.legs.forEach((leg, li) => {
+    // Step: abordar bus
+    stepsEl.appendChild(makeStep("bus",
+      `Aborda la línea <strong style="color:${leg.route.color}">${leg.route.linea}</strong> – ${leg.route.empresa}`,
+      leg.route.color,
+      `En la parada de <strong>${SECTOR_BY_ID[leg.from]?.name}</strong>`
+    ));
+
+    // Paradas intermedias
+    const intermedias = leg.stops.slice(1, -1);
+    if (intermedias.length > 0) {
+      const div = document.createElement("div");
+      div.className = "step-stops-detail";
+      div.innerHTML = `
+        <button class="toggle-stops" aria-expanded="false" aria-controls="stops-${li}">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M6 4v4M4 6h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+          Ver ${intermedias.length} paradas intermedias
+        </button>
+        <ul class="stops-list hidden" id="stops-${li}">
+          ${intermedias.map(id => `<li class="stop-item">
+            <span class="stop-item-dot" aria-hidden="true" style="background:${leg.route.color}"></span>
+            ${SECTOR_BY_ID[id]?.name || id}
+          </li>`).join("")}
+        </ul>
+      `;
+      div.querySelector(".toggle-stops").addEventListener("click", function() {
+        const ul = div.querySelector(".stops-list");
+        const expanded = this.getAttribute("aria-expanded") === "true";
+        ul.classList.toggle("hidden", expanded);
+        this.setAttribute("aria-expanded", (!expanded).toString());
+        this.innerHTML = expanded
+          ? `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M6 4v4M4 6h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg> Ver ${intermedias.length} paradas intermedias`
+          : `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.2"/><path d="M4 6h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg> Ocultar paradas`;
+      });
+      stepsEl.appendChild(div);
+    }
+
+    // Step: bajarse o transbordo
+    if (li < result.legs.length - 1) {
+      stepsEl.appendChild(makeStep("transfer",
+        `Bájate en <strong>${SECTOR_BY_ID[leg.to]?.name}</strong> y espera la siguiente línea`,
+        null, "Transbordo · busca el paradero de la línea " + result.legs[li+1].route.linea
+      ));
+    } else {
+      stepsEl.appendChild(makeStep("arrive",
+        `Llega a <strong>${SECTOR_BY_ID[leg.to]?.name}</strong>`,
+        null, "🎉 ¡Llegaste a tu destino!"
+      ));
+    }
+  });
+
+  // Info lateral
+  const allStops = result.legs.flatMap(l => l.stops);
+  const zonas = [...new Set(result.legs.map(l => SECTOR_BY_ID[l.from]?.zona))];
+  document.getElementById("detail-info").innerHTML = `
+    <div class="di-row"><span class="di-label">Tiempo estimado</span><span class="di-val">~${result.estimatedMin} min</span></div>
+    <div class="di-row"><span class="di-label">Total paradas</span><span class="di-val">${result.totalStops}</span></div>
+    <div class="di-row"><span class="di-label">Transbordos</span><span class="di-val">${result.transfers}</span></div>
+    <div class="di-row"><span class="di-label">Líneas</span><span class="di-val">${result.legs.map(l => l.route.linea).join(", ")}</span></div>
+    <div class="di-row"><span class="di-label">Tipo</span><span class="di-val ${result.type}">${result.type === "direct" ? "🟢 Directa" : "🔵 Con transbordo"}</span></div>
+  `;
+
+  // Tips
+  const zona = zonas[0] || "centro";
+  const tips = ROUTE_TIPS[zona] || ROUTE_TIPS.centro;
+  const tip = tips[Math.floor(Math.random() * tips.length)];
+  document.getElementById("detail-tips").innerHTML = `<div class="tip-box"><p>${tip}</p></div>`;
+
+  // Mapa detalle
+  initDetailMap(result);
+}
+
+function makeStep(type, mainText, color, subText) {
+  const div = document.createElement("div");
+  div.className = `route-step step-${type}`;
+  const icons = { walk:"🚶", bus:"🚌", transfer:"🔄", arrive:"📍" };
+  div.innerHTML = `
+    <div class="rs-icon" aria-hidden="true" ${color ? `style="background:${color}20;border-color:${color}"` : ""}>${icons[type]}</div>
+    <div class="rs-content">
+      <div class="rs-main">${mainText}</div>
+      ${subText ? `<div class="rs-sub">${subText}</div>` : ""}
+    </div>
+  `;
+  return div;
+}
+
+// ─── MAPAS ─────────────────────────────────────────────────
+function initResultsMap() {
+  if (APP.maps.results) { APP.maps.results.remove(); delete APP.maps.results; }
+  const m = L.map("results-map", { zoomControl:true }).setView([-0.21, -78.51], 12);
+  APP.maps.results = m;
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    maxZoom: 18,
-  }).addTo(map);
+    attribution:"© OpenStreetMap", maxZoom:18
+  }).addTo(m);
 
-  const seed = hashCode(state.linea.ruta + state.zona);
-  const allStops = PARADAS_POR_ZONA[state.zona];
-  const stops = shuffleSeed(allStops, seed).slice(0, 6 + (seed % 4));
+  // Mostrar origen y destino
+  const o = SECTOR_BY_ID[APP.origin];
+  const d = SECTOR_BY_ID[APP.dest];
+  if (o) addMapMarker(m, o.lat, o.lng, o.name, "#27AE60");
+  if (d) addMapMarker(m, d.lat, d.lng, d.name, "#FF6B2B");
 
-  const latlngs = stops.map(s => [s.lat, s.lng]);
-  state.polyline = L.polyline(latlngs, {
-    color: "#FF6B2B",
-    weight: 3.5,
-    opacity: 0.55,
-    dashArray: "8 5"
-  }).addTo(map);
-
-  stops.forEach(stop => {
-    const icon = L.divIcon({
-      className: "",
-      html: `<div class="bus-stop-marker" tabindex="0" role="button" aria-label="Parada: ${stop.name}"></div>`,
-      iconSize: [14, 14],
-      iconAnchor: [7, 7],
+  // Líneas de todas las rutas encontradas
+  APP.results.forEach(result => {
+    result.legs.forEach(leg => {
+      const latlngs = leg.stops.map(id => {
+        const s = SECTOR_BY_ID[id];
+        return s ? [s.lat, s.lng] : null;
+      }).filter(Boolean);
+      L.polyline(latlngs, { color: leg.route.color, weight:3, opacity:.5, dashArray:"6 4" }).addTo(m);
     });
-
-    const marker = L.marker([stop.lat, stop.lng], { icon })
-      .addTo(map)
-      .bindTooltip(stop.name, { direction: "top", offset: [0, -8] });
-
-    marker.on("click", () => {
-      setActiveMarker(marker);
-      showStop(stop);
-    });
-
-    const el = marker.getElement();
-    if (el) {
-      el.addEventListener("keydown", e => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          setActiveMarker(marker);
-          showStop(stop);
-        }
-      });
-    }
-
-    state.markers.push(marker);
   });
-}
 
-function setActiveMarker(marker) {
-  if (state.activeMarkerEl) {
-    state.activeMarkerEl.querySelector(".bus-stop-marker")?.classList.remove("active");
-  }
-
-  const el = marker.getElement();
-  if (el) {
-    el.querySelector(".bus-stop-marker")?.classList.add("active");
-    state.activeMarkerEl = el;
+  if (o && d) {
+    m.fitBounds([[o.lat, o.lng],[d.lat, d.lng]], { padding:[30,30] });
   }
 }
 
-// ─── 11. PARADA / TIEMPOS ──────────────────────────────────
-function showStop(stop) {
-  document.getElementById("stop-empty").classList.add("hidden");
-  document.getElementById("stop-content").classList.remove("hidden");
-  document.getElementById("stop-name").textContent = stop.name;
-  renderArrivals();
+function initDetailMap(result) {
+  if (APP.maps.detail) { APP.maps.detail.remove(); delete APP.maps.detail; }
+  const m = L.map("detail-map", { zoomControl:true }).setView([-0.21,-78.51], 12);
+  APP.maps.detail = m;
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution:"© OpenStreetMap", maxZoom:18
+  }).addTo(m);
 
-  if (state.stopRefreshTimer) clearInterval(state.stopRefreshTimer);
-  state.stopRefreshTimer = setInterval(renderArrivals, 30000);
+  const allCoords = [];
+  result.legs.forEach(leg => {
+    const latlngs = leg.stops.map(id => {
+      const s = SECTOR_BY_ID[id];
+      return s ? [s.lat, s.lng] : null;
+    }).filter(Boolean);
+    allCoords.push(...latlngs);
+    L.polyline(latlngs, { color: leg.route.color, weight:4, opacity:.75 }).addTo(m);
+    latlngs.forEach((ll, i) => {
+      const id = leg.stops[i];
+      const s = SECTOR_BY_ID[id];
+      if (!s) return;
+      const isKey = i === 0 || i === latlngs.length-1;
+      addMapMarker(m, ll[0], ll[1], s.name, isKey ? leg.route.color : "#888", isKey ? 10 : 6);
+    });
+  });
+
+  if (allCoords.length > 1) {
+    m.fitBounds(allCoords, { padding:[24,24] });
+  }
 }
 
-function renderArrivals() {
-  const list = document.getElementById("arrivals-list");
-  list.innerHTML = "";
+function addMapMarker(map, lat, lng, name, color="#FF6B2B", size=12) {
+  const icon = L.divIcon({
+    className:"",
+    html:`<div style="width:${size}px;height:${size}px;background:${color};border:2.5px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.25);"></div>`,
+    iconSize:[size,size], iconAnchor:[size/2,size/2],
+  });
+  L.marker([lat,lng],{icon}).addTo(map).bindTooltip(name,{direction:"top",offset:[0,-6]});
+}
 
-  generateArrivals().forEach((mins, i) => {
-    const labels = ["Próximo bus", "Segundo bus", "Tercer bus"];
-    const cls = mins <= 5 ? "soon" : mins <= 10 ? "mid" : "far";
-    const text = mins === 0 ? "Llegando…" : `${mins} min`;
-
-    const row = document.createElement("div");
-    row.className = "arrival-row";
-    row.innerHTML = `
-      <span class="arrival-label">${labels[i]}</span>
-      <span class="arrival-time ${cls}" aria-label="${labels[i]}: ${text}">${text}</span>
+// ─── LIVE CARD (hero derecho) ────────────────────────────────
+function initLiveCard() {
+  const container = document.getElementById("lc-routes");
+  const trips = shuffle([...POPULAR_TRIPS]).slice(0, 4);
+  container.innerHTML = "";
+  trips.forEach(trip => {
+    const o = SECTOR_BY_ID[trip.from];
+    const d = SECTOR_BY_ID[trip.to];
+    if (!o || !d) return;
+    const routes = findRoutes(trip.from, trip.to);
+    const best = routes[0];
+    const div = document.createElement("div");
+    div.className = "lc-route";
+    div.setAttribute("role","button");
+    div.setAttribute("tabindex","0");
+    div.setAttribute("aria-label",`Ruta popular: ${trip.label}`);
+    div.innerHTML = `
+      <div class="lcr-path">${trip.label}</div>
+      <div class="lcr-meta">${best ? `${best.legs.length > 1 ? "Transbordo" : "Directo"} · ~${best.estimatedMin} min` : "Ver rutas"}</div>
     `;
-    list.appendChild(row);
+    div.addEventListener("click", () => {
+      document.getElementById("input-origin").value = o.name;
+      document.getElementById("input-dest").value = d.name;
+      APP.origin = trip.from;
+      APP.dest = trip.to;
+      document.getElementById("input-origin").parentElement.querySelector(".sf-clear").classList.remove("hidden");
+      document.getElementById("input-dest").parentElement.querySelector(".sf-clear").classList.remove("hidden");
+      checkSearchReady();
+      doSearch();
+    });
+    div.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") div.click(); });
+    container.appendChild(div);
   });
 }
 
-function generateArrivals() {
-  const a = Math.floor(Math.random() * 16);
-  const b = a + 5 + Math.floor(Math.random() * 11);
-  const c = b + 5 + Math.floor(Math.random() * 11);
-  return [a, b, c];
-}
-
-// ─── 12. NAVEGACIÓN ────────────────────────────────────────
-function showStep(n) {
-  [1, 2, 3, 4].forEach(i => {
-    document.getElementById(`step${i}`).classList.toggle("hidden", i !== n);
-  });
-
-  updateStepper(n);
-  updateBreadcrumb(n);
-  state.step = n;
-  document.getElementById("selector").scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function goToStep1() {
-  state.zona = null;
-  state.empresa = null;
-  state.linea = null;
-
-  if (state.stopRefreshTimer) clearInterval(state.stopRefreshTimer);
-  if (state.map) {
-    state.map.remove();
-    state.map = null;
-  }
-
-  showStep(1);
-}
-
-function goToStep2() {
-  state.empresa = null;
-  state.linea = null;
-
-  if (state.stopRefreshTimer) clearInterval(state.stopRefreshTimer);
-  if (state.map) {
-    state.map.remove();
-    state.map = null;
-  }
-
-  renderEmpresas(state.zona);
-  showStep(2);
-}
-
-function goToStep3() {
-  state.linea = null;
-
-  if (state.stopRefreshTimer) clearInterval(state.stopRefreshTimer);
-  if (state.map) {
-    state.map.remove();
-    state.map = null;
-  }
-
-  const displayName = state.empresa.replace(/ \((Norte|Sur|Centro)\)$/, "");
-  renderLineas(state.empresa, displayName);
-  showStep(3);
-}
-
-function updateStepper(n) {
-  [1, 2, 3, 4].forEach(i => {
-    const el = document.getElementById(`step${i}-indicator`);
-    el.classList.toggle("active", i === n);
-    el.classList.toggle("done", i < n);
-
-    if (i === n) el.setAttribute("aria-current", "step");
-    else el.removeAttribute("aria-current");
-  });
-
-  [1, 2, 3].forEach(i => {
-    const line = document.getElementById(`line-${i}`);
-    if (line) line.classList.toggle("done", i < n);
+// ─── SECTORES RÁPIDOS ────────────────────────────────────────
+function initQuickSectors() {
+  const container = document.getElementById("qs-chips");
+  POPULAR_SECTORS.forEach(id => {
+    const s = SECTOR_BY_ID[id];
+    if (!s) return;
+    const btn = document.createElement("button");
+    btn.className = "qs-chip";
+    btn.textContent = s.name;
+    btn.setAttribute("aria-label",`Buscar rutas hacia ${s.name}`);
+    btn.setAttribute("role","listitem");
+    btn.addEventListener("click", () => {
+      const inDest = document.getElementById("input-dest");
+      inDest.value = s.name;
+      APP.dest = s.id;
+      inDest.parentElement.querySelector(".sf-clear").classList.remove("hidden");
+      checkSearchReady();
+      inDest.focus();
+      showToast(`Destino: ${s.name}`);
+    });
+    container.appendChild(btn);
   });
 }
 
-function updateBreadcrumb() {
-  const bc = document.getElementById("breadcrumb");
-  bc.innerHTML = "";
+// ─── BÚSQUEDA EXPERTA ────────────────────────────────────────
+function initExpertSearch() {
+  const input   = document.getElementById("expert-input");
+  const results = document.getElementById("expert-results");
 
-  const items = [];
-  if (state.zona) items.push({ label: ZONAS[state.zona].label, step: 1 });
-  if (state.empresa) items.push({ label: state.empresa.replace(/ \((Norte|Sur|Centro)\)$/, ""), step: 2 });
-  if (state.linea) items.push({ label: `Línea ${state.linea.ruta}`, step: 3 });
+  input.addEventListener("input", () => {
+    const q = input.value.trim().toLowerCase();
+    if (q.length < 1) { results.hidden = true; return; }
 
-  items.forEach((item, idx) => {
-    if (idx > 0) {
-      const sep = document.createElement("span");
-      sep.className = "bc-sep";
-      sep.textContent = "›";
-      sep.setAttribute("aria-hidden", "true");
-      bc.appendChild(sep);
-    }
+    const matches = [];
+    Object.entries(getAllRoutesByLinea()).forEach(([linea, route]) => {
+      if (linea.includes(q) || route.empresa.toLowerCase().includes(q) ||
+          route.stops.some(id => SECTOR_BY_ID[id]?.name.toLowerCase().includes(q))) {
+        matches.push(route);
+      }
+    });
 
-    const span = document.createElement("span");
-    span.className = "bc-item" + (idx === items.length - 1 ? " active" : "");
-    span.textContent = item.label;
+    results.innerHTML = "";
+    results.hidden = matches.length === 0;
 
-    if (idx < items.length - 1) {
-      span.title = `Volver a ${item.label}`;
-      span.addEventListener("click", () => {
-        if (item.step === 1) goToStep1();
-        else if (item.step === 2) goToStep2();
-        else if (item.step === 3) goToStep3();
+    matches.slice(0, 8).forEach(route => {
+      const endA = SECTOR_BY_ID[route.stops[0]]?.name;
+      const endB = SECTOR_BY_ID[route.stops[route.stops.length-1]]?.name;
+      const li = document.createElement("li");
+      li.className = "er-item";
+      li.setAttribute("role","option");
+      li.innerHTML = `
+        <span class="er-badge" style="background:${route.color}">${route.linea}</span>
+        <div class="er-info">
+          <span class="er-empresa">${route.empresa}</span>
+          <span class="er-path">${endA} ↔ ${endB}</span>
+        </div>
+        <button class="er-go" aria-label="Ver esta ruta">Ver →</button>
+      `;
+      li.querySelector(".er-go").addEventListener("click", () => {
+        APP.origin = route.stops[0];
+        APP.dest   = route.stops[route.stops.length - 1];
+        const o = SECTOR_BY_ID[APP.origin];
+        const d = SECTOR_BY_ID[APP.dest];
+        document.getElementById("input-origin").value = o?.name || "";
+        document.getElementById("input-dest").value   = d?.name || "";
+        APP.results = findRoutes(APP.origin, APP.dest);
+        renderResults();
+        showScreen("results");
+        results.hidden = true;
+        document.getElementById("expert-panel").removeAttribute("open");
       });
-    }
+      results.appendChild(li);
+    });
+  });
 
-    bc.appendChild(span);
+  document.addEventListener("click", e => {
+    if (!e.target.closest("#expert-panel")) results.hidden = true;
   });
 }
 
-// ─── 13. TOAST ─────────────────────────────────────────────
-let toastTimer;
+function getAllRoutesByLinea() {
+  const map = {};
+  ROUTES.forEach(r => { map[r.linea] = r; });
+  return map;
+}
 
+// ─── FAVORITOS ─────────────────────────────────────────────
+function isFavorite(orig, dest) {
+  return APP.favorites.some(f => f.origin === orig && f.dest === dest);
+}
+
+function toggleFavorite() {
+  if (!APP.user) {
+    showToast("Inicia sesión para guardar favoritos");
+    setTimeout(() => { renderProfile(); showScreen("account"); }, 1200);
+    return;
+  }
+  const idx = APP.favorites.findIndex(f => f.origin === APP.origin && f.dest === APP.dest);
+  if (idx === -1) {
+    const o = SECTOR_BY_ID[APP.origin];
+    const d = SECTOR_BY_ID[APP.dest];
+    APP.favorites.push({ origin: APP.origin, dest: APP.dest, label: `${o?.name} → ${d?.name}` });
+    showToast("⭐ Guardado en favoritos");
+  } else {
+    APP.favorites.splice(idx, 1);
+    showToast("Eliminado de favoritos");
+  }
+  saveStorage();
+  // Refresh fav button
+  if (APP.selectedRoute) renderDetail(APP.selectedRoute);
+  updateProfileStats();
+}
+
+function renderFavorites() {
+  const list = document.getElementById("favorites-list");
+  list.innerHTML = "";
+  if (APP.favorites.length === 0) {
+    list.innerHTML = `<div class="empty-state"><p>No tienes rutas guardadas aún.</p><p>Busca una ruta y toca <strong>Guardar</strong> en el detalle.</p></div>`;
+    return;
+  }
+  APP.favorites.forEach((fav, i) => {
+    const card = document.createElement("div");
+    card.className = "fav-card";
+    const routes = findRoutes(fav.origin, fav.dest);
+    const best = routes[0];
+    card.innerHTML = `
+      <div class="fav-main">
+        <div class="fav-label">${fav.label}</div>
+        ${best ? `<div class="fav-meta">${best.type === "direct" ? "🟢 Directa" : "🔵 Transbordo"} · ${best.legs.map(l=>l.route.linea).join(" + ")} · ~${best.estimatedMin} min</div>` : ""}
+      </div>
+      <div class="fav-actions">
+        <button class="fav-go" data-i="${i}" aria-label="Buscar esta ruta favorita">Buscar →</button>
+        <button class="fav-del" data-i="${i}" aria-label="Eliminar de favoritos">🗑</button>
+      </div>
+    `;
+    card.querySelector(".fav-go").addEventListener("click", () => {
+      APP.origin = fav.origin;
+      APP.dest   = fav.dest;
+      const o = SECTOR_BY_ID[fav.origin];
+      const d = SECTOR_BY_ID[fav.dest];
+      document.getElementById("input-origin").value = o?.name || "";
+      document.getElementById("input-dest").value   = d?.name || "";
+      document.getElementById("input-origin").parentElement.querySelector(".sf-clear").classList.remove("hidden");
+      document.getElementById("input-dest").parentElement.querySelector(".sf-clear").classList.remove("hidden");
+      APP.results = findRoutes(fav.origin, fav.dest);
+      renderResults();
+      showScreen("results");
+    });
+    card.querySelector(".fav-del").addEventListener("click", () => {
+      APP.favorites.splice(i, 1);
+      saveStorage();
+      renderFavorites();
+      showToast("Eliminado de favoritos");
+      updateProfileStats();
+    });
+    list.appendChild(card);
+  });
+}
+
+// ─── HISTORIAL ─────────────────────────────────────────────
+function renderHistory() {
+  const list = document.getElementById("history-list");
+  list.innerHTML = "";
+  if (APP.history.length === 0) {
+    list.innerHTML = `<div class="empty-state"><p>Tu historial de búsquedas aparecerá aquí.</p></div>`;
+    return;
+  }
+  APP.history.forEach((entry, i) => {
+    const card = document.createElement("div");
+    card.className = "hist-card";
+    card.innerHTML = `
+      <div class="hist-main">
+        <div class="hist-label">${entry.label}</div>
+        <div class="hist-date">${entry.date}</div>
+      </div>
+      <button class="hist-go" data-i="${i}" aria-label="Repetir búsqueda: ${entry.label}">Repetir →</button>
+    `;
+    card.querySelector(".hist-go").addEventListener("click", () => {
+      APP.origin = entry.origin;
+      APP.dest   = entry.dest;
+      const o = SECTOR_BY_ID[entry.origin];
+      const d = SECTOR_BY_ID[entry.dest];
+      document.getElementById("input-origin").value = o?.name || "";
+      document.getElementById("input-dest").value   = d?.name || "";
+      document.getElementById("input-origin").parentElement.querySelector(".sf-clear").classList.remove("hidden");
+      document.getElementById("input-dest").parentElement.querySelector(".sf-clear").classList.remove("hidden");
+      APP.results = findRoutes(entry.origin, entry.dest);
+      renderResults();
+      showScreen("results");
+    });
+    list.appendChild(card);
+  });
+}
+
+function clearHistory() {
+  showModal("Borrar historial", "¿Estás seguro de que quieres borrar todo tu historial?", () => {
+    APP.history = [];
+    saveStorage();
+    renderHistory();
+    updateProfileStats();
+    showToast("Historial borrado");
+  });
+}
+
+// ─── AUTH ──────────────────────────────────────────────────
+function initAuth() {
+  // Tabs
+  document.querySelectorAll(".auth-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".auth-tab").forEach(t => { t.classList.remove("active"); t.setAttribute("aria-selected","false"); });
+      tab.classList.add("active");
+      tab.setAttribute("aria-selected","true");
+      document.getElementById("form-login").classList.toggle("hidden",   tab.dataset.tab !== "login");
+      document.getElementById("form-register").classList.toggle("hidden", tab.dataset.tab !== "register");
+    });
+  });
+  document.querySelectorAll(".link-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelector(`.auth-tab[data-tab="${btn.dataset.tab}"]`).click();
+    });
+  });
+
+  // Login
+  document.getElementById("btn-login").addEventListener("click", () => {
+    const email = document.getElementById("login-email").value.trim();
+    const pass  = document.getElementById("login-pass").value;
+    const err   = document.getElementById("login-error");
+    if (!email || !pass) { showError(err, "Completa todos los campos"); return; }
+    if (!/\S+@\S+\.\S+/.test(email)) { showError(err, "Correo inválido"); return; }
+    // Simular auth (localStorage)
+    const stored = localStorage.getItem("bq_accounts");
+    const accounts = stored ? JSON.parse(stored) : {};
+    if (!accounts[email]) { showError(err, "No existe una cuenta con ese correo"); return; }
+    if (accounts[email].pass !== btoa(pass)) { showError(err, "Contraseña incorrecta"); return; }
+    APP.user = { name: accounts[email].name, email };
+    saveStorage();
+    updateAccountLabel();
+    renderProfile();
+    showToast(`Bienvenido, ${APP.user.name} 👋`);
+    err.classList.add("hidden");
+  });
+
+  // Register
+  document.getElementById("btn-register").addEventListener("click", () => {
+    const name  = document.getElementById("reg-name").value.trim();
+    const email = document.getElementById("reg-email").value.trim();
+    const pass  = document.getElementById("reg-pass").value;
+    const err   = document.getElementById("reg-error");
+    if (!name || !email || !pass) { showError(err, "Completa todos los campos"); return; }
+    if (!/\S+@\S+\.\S+/.test(email)) { showError(err, "Correo inválido"); return; }
+    if (pass.length < 6) { showError(err, "La contraseña debe tener al menos 6 caracteres"); return; }
+    const stored = localStorage.getItem("bq_accounts");
+    const accounts = stored ? JSON.parse(stored) : {};
+    if (accounts[email]) { showError(err, "Ya existe una cuenta con ese correo"); return; }
+    accounts[email] = { name, pass: btoa(pass) };
+    localStorage.setItem("bq_accounts", JSON.stringify(accounts));
+    APP.user = { name, email };
+    saveStorage();
+    updateAccountLabel();
+    renderProfile();
+    showToast(`Cuenta creada. Bienvenido, ${name} 🎉`);
+    err.classList.add("hidden");
+  });
+
+  // Password toggle
+  document.querySelectorAll(".pass-toggle").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const inp = document.getElementById(btn.dataset.target);
+      inp.type = inp.type === "password" ? "text" : "password";
+      btn.textContent = inp.type === "password" ? "👁" : "🙈";
+    });
+  });
+
+  // Logout
+  document.getElementById("btn-logout").addEventListener("click", () => {
+    showModal("Cerrar sesión", "¿Seguro que quieres cerrar sesión?", () => {
+      APP.user = null;
+      saveStorage();
+      updateAccountLabel();
+      renderProfile();
+      showToast("Sesión cerrada");
+    });
+  });
+
+  // Profile nav
+  document.getElementById("pgo-fav").addEventListener("click",  () => { renderFavorites(); showScreen("favorites"); });
+  document.getElementById("pgo-hist").addEventListener("click", () => { renderHistory();   showScreen("history"); });
+}
+
+function renderProfile() {
+  const isLoggedIn = !!APP.user;
+  document.getElementById("view-auth").classList.toggle("hidden", isLoggedIn);
+  document.getElementById("view-profile").classList.toggle("hidden", !isLoggedIn);
+  if (isLoggedIn) {
+    document.getElementById("profile-name").textContent = APP.user.name;
+    document.getElementById("profile-email").textContent = APP.user.email;
+    document.getElementById("profile-avatar").textContent =
+      APP.user.name.charAt(0).toUpperCase();
+    updateProfileStats();
+  }
+}
+
+function updateProfileStats() {
+  const fe = document.getElementById("pstat-fav");
+  const he = document.getElementById("pstat-hist");
+  if (fe) fe.textContent = APP.favorites.length;
+  if (he) he.textContent = APP.history.length;
+}
+
+function updateAccountLabel() {
+  document.getElementById("account-label").textContent = APP.user ? APP.user.name.split(" ")[0] : "Entrar";
+}
+
+function showError(el, msg) {
+  el.textContent = msg;
+  el.classList.remove("hidden");
+  setTimeout(() => el.classList.add("hidden"), 4000);
+}
+
+// ─── MODAL ────────────────────────────────────────────────
+function showModal(title, body, onConfirm) {
+  document.getElementById("modal-title").textContent = title;
+  document.getElementById("modal-body").textContent  = body;
+
+  // Clone both buttons to wipe all previous listeners
+  const confirmBtn = document.getElementById("modal-confirm");
+  const cancelBtn  = document.getElementById("modal-cancel");
+  const newConfirm = confirmBtn.cloneNode(true);
+  const newCancel  = cancelBtn.cloneNode(true);
+  confirmBtn.parentNode.replaceChild(newConfirm, confirmBtn);
+  cancelBtn.parentNode.replaceChild(newCancel,  cancelBtn);
+
+  newConfirm.addEventListener("click", () => { closeModal(); onConfirm(); });
+  newCancel.addEventListener("click",  closeModal);
+
+  const overlay = document.getElementById("modal-overlay");
+  overlay.classList.add("is-open");
+
+  overlay.onclick = e => { if (e.target === overlay) closeModal(); };
+}
+
+function closeModal() {
+  const overlay = document.getElementById("modal-overlay");
+  if (overlay) { overlay.classList.remove("is-open"); overlay.onclick = null; }
+}
+
+// ─── TOAST ────────────────────────────────────────────────
+let toastTimer;
 function showToast(msg) {
   const t = document.getElementById("toast");
   t.textContent = msg;
   t.classList.remove("hidden");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.add("hidden"), 2200);
+  toastTimer = setTimeout(() => t.classList.add("hidden"), 2400);
 }
 
-// ─── 14. UTILS ─────────────────────────────────────────────
-function hashCode(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+// ─── ACCESIBILIDAD ─────────────────────────────────────────
+function initA11y() {
+  const sizes = { sm:"14px", md:"16px", lg:"19px" };
+  let cur = localStorage.getItem("bq_font") || "md";
+  function setFont(s) {
+    cur = s;
+    document.documentElement.style.setProperty("--base-font", sizes[s]);
+    document.querySelectorAll(".a11y-btn[id^=font]").forEach(b => b.classList.remove("active"));
+    document.getElementById(`font-${s}`).classList.add("active");
+    localStorage.setItem("bq_font", s);
   }
-  return Math.abs(h);
+  document.getElementById("font-sm").addEventListener("click", () => setFont("sm"));
+  document.getElementById("font-md").addEventListener("click", () => setFont("md"));
+  document.getElementById("font-lg").addEventListener("click", () => setFont("lg"));
+  setFont(cur);
+
+  let hc = localStorage.getItem("bq_hc") === "1";
+  const hcBtn = document.getElementById("btn-contrast");
+  function setContrast(v) {
+    hc = v;
+    document.body.classList.toggle("high-contrast", v);
+    hcBtn.classList.toggle("active", v);
+    hcBtn.setAttribute("aria-pressed", v.toString());
+    localStorage.setItem("bq_hc", v ? "1" : "0");
+  }
+  hcBtn.addEventListener("click", () => setContrast(!hc));
+  setContrast(hc);
 }
 
-function shuffleSeed(arr, seed) {
-  const a = [...arr];
-  let s = seed;
+// ─── UTILS ────────────────────────────────────────────────
+function shuffle(arr) {
+  for (let i = arr.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i+1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 
-  for (let i = a.length - 1; i > 0; i--) {
-    s = (s * 1664525 + 1013904223) & 0xffffffff;
-    const j = Math.abs(s) % (i + 1);
-    [a[i], a[j]] = [a[j], a[i]];
+// ─── MAP PICKER ───────────────────────────────────────────
+const pickerState = {
+  mode: null,          // "origin" | "dest"
+  selectedId: null,
+  map: null,
+  markers: [],
+};
+
+function initMapPicker() {
+  // Wire all "En mapa" buttons
+  document.querySelectorAll(".map-pick-btn").forEach(btn => {
+    btn.addEventListener("click", () => openMapPicker(btn.dataset.mode));
+  });
+  document.getElementById("map-modal-close").addEventListener("click", closeMapPicker);
+  document.getElementById("map-confirm-btn").addEventListener("click", confirmMapSelection);
+
+  // Close on overlay click
+  document.getElementById("map-picker-modal").addEventListener("click", e => {
+    if (e.target === document.getElementById("map-picker-modal")) closeMapPicker();
+  });
+
+  // ESC closes
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !document.getElementById("map-picker-modal").classList.contains("hidden")) {
+      closeMapPicker();
+    }
+  });
+}
+
+function openMapPicker(mode) {
+  pickerState.mode = mode;
+  pickerState.selectedId = mode === "origin" ? APP.origin : APP.dest;
+
+  // Update modal header
+  const isOrigin = mode === "origin";
+  const indicator = document.getElementById("map-modal-indicator");
+  indicator.className = "map-modal-indicator" + (isOrigin ? "" : " dest");
+  document.getElementById("map-modal-title").textContent =
+    isOrigin ? "Selecciona tu punto de origen" : "Selecciona tu destino";
+  document.getElementById("map-modal-hint").textContent =
+    isOrigin
+      ? "Toca la parada desde donde saldrás"
+      : "Toca la parada a la que quieres llegar";
+
+  // Reset footer
+  updatePickerDisplay(pickerState.selectedId);
+
+  // Show modal
+  document.getElementById("map-picker-modal").classList.add("is-open");
+  document.body.style.overflow = "hidden";
+
+  // Init map (destroy previous if any)
+  if (pickerState.map) { pickerState.map.remove(); pickerState.map = null; }
+  pickerState.markers = [];
+
+  setTimeout(() => {
+    const map = L.map("picker-map", { zoomControl: true }).setView([-0.21, -78.51], 12);
+    pickerState.map = map;
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap", maxZoom: 18,
+    }).addTo(map);
+
+    // Render all sectors as clickable markers
+    SECTORS.forEach(sector => {
+      const isSelected = sector.id === pickerState.selectedId;
+      const icon = L.divIcon({
+        className: "",
+        html: `<div class="picker-marker zona-${sector.zona}${isSelected ? (isOrigin ? " selected-origin" : " selected-dest") : ""}"
+                    tabindex="0" role="button"
+                    aria-label="Parada: ${sector.name}, zona ${sector.zona}"></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      });
+
+      const marker = L.marker([sector.lat, sector.lng], { icon })
+        .addTo(map)
+        .bindTooltip(`<strong>${sector.name}</strong><br><small>Zona ${sector.zona}</small>`, {
+          direction: "top", offset: [0, -10], className: "picker-tooltip"
+        });
+
+      marker.on("click", () => selectPickerMarker(sector, map));
+
+      const el = marker.getElement();
+      if (el) {
+        el.addEventListener("keydown", e => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectPickerMarker(sector, map); }
+        });
+      }
+
+      pickerState.markers.push({ marker, sector });
+    });
+
+    // Zoom to current selection if any
+    if (pickerState.selectedId) {
+      const s = SECTOR_BY_ID[pickerState.selectedId];
+      if (s) map.setView([s.lat, s.lng], 14);
+    }
+  }, 80);
+}
+
+function selectPickerMarker(sector, map) {
+  pickerState.selectedId = sector.id;
+  const isOrigin = pickerState.mode === "origin";
+
+  // Update all marker classes
+  pickerState.markers.forEach(({ marker, sector: s }) => {
+    const el = marker.getElement()?.querySelector(".picker-marker");
+    if (!el) return;
+    el.classList.remove("selected-origin", "selected-dest");
+    if (s.id === sector.id) {
+      el.classList.add(isOrigin ? "selected-origin" : "selected-dest");
+    }
+  });
+
+  updatePickerDisplay(sector.id);
+  showToast(isOrigin ? `Origen: ${sector.name}` : `Destino: ${sector.name}`);
+}
+
+function updatePickerDisplay(sectorId) {
+  const display   = document.getElementById("map-selected-display");
+  const confirmBtn = document.getElementById("map-confirm-btn");
+  const isOrigin  = pickerState.mode === "origin";
+
+  if (sectorId) {
+    const s = SECTOR_BY_ID[sectorId];
+    display.innerHTML = `
+      <div class="msd-selected">
+        <span class="msd-dot" style="background:${isOrigin ? "var(--green)" : "var(--orange)"}"></span>
+        ${s ? s.name : sectorId}
+        <span style="font-size:.72rem;color:var(--gray-text);font-weight:500">(zona ${s?.zona})</span>
+      </div>`;
+    confirmBtn.classList.remove("hidden");
+  } else {
+    display.innerHTML = `<span class="msd-placeholder">Ninguna parada seleccionada</span>`;
+    confirmBtn.classList.add("hidden");
+  }
+}
+
+function confirmMapSelection() {
+  const mode = pickerState.mode;
+  const sectorId = pickerState.selectedId;
+  if (!sectorId) return;
+
+  const s = SECTOR_BY_ID[sectorId];
+  if (!s) return;
+
+  if (mode === "origin") {
+    APP.origin = sectorId;
+    const inp = document.getElementById("input-origin");
+    inp.value = s.name;
+    inp.parentElement.querySelector(".sf-clear").classList.remove("hidden");
+  } else {
+    APP.dest = sectorId;
+    const inp = document.getElementById("input-dest");
+    inp.value = s.name;
+    inp.parentElement.querySelector(".sf-clear").classList.remove("hidden");
   }
 
-  return a;
+  checkSearchReady();
+  closeMapPicker();
+
+  // Si ya hay origen y destino, ofrecemos buscar automáticamente
+  if (APP.origin && APP.dest) {
+    setTimeout(() => {
+      showToast("✅ Origen y destino listos. Toca 'Buscar rutas'.");
+    }, 300);
+  }
+}
+
+function closeMapPicker() {
+  document.getElementById("map-picker-modal").classList.remove("is-open");
+  document.body.style.overflow = "";
+  if (pickerState.map) { pickerState.map.remove(); pickerState.map = null; }
+  pickerState.markers = [];
 }
