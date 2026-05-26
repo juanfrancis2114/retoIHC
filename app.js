@@ -483,27 +483,7 @@ function initLiveCard() {
 
 // ─── SECTORES RÁPIDOS ──────────────────────────────────────
 function initQuickSectors() {
-  const container = document.getElementById("qs-chips");
-  if (!container) return;
-  if (!POPULAR_SECTORS || POPULAR_SECTORS.length === 0) return;
-  POPULAR_SECTORS.forEach(id => {
-    const s = SECTOR_BY_ID[id];
-    if (!s) return;
-    const btn = document.createElement("button");
-    btn.className = "qs-chip";
-    btn.textContent = s.name;
-    btn.setAttribute("aria-label", `Buscar rutas hacia ${s.name}`);
-    btn.addEventListener("click", () => {
-      const inDest = document.getElementById("input-dest");
-      if (!inDest) return;
-      inDest.value = s.name;
-      APP.dest = s.id; APP.destLatLng = null;
-      inDest.parentElement.querySelector(".sf-clear")?.classList.remove("hidden");
-      checkSearchReady();
-      showToast(`Destino: ${s.name}`);
-    });
-    container.appendChild(btn);
-  });
+  // desactivado
 }
 
 // ─── BÚSQUEDA EXPERTA ──────────────────────────────────────
