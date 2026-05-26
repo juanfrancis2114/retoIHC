@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════
-   BusQuito – app.js  (v2 – IHC + Auth mejorado)
+   BusQuito – app.js  (v3 – fix null checks)
    ══════════════════════════════════════ */
 
 const APP = {
@@ -51,7 +51,9 @@ function saveStorage() {
 // ─── NAVEGACIÓN ────────────────────────────────────────────
 function showScreen(name) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
-  document.getElementById("screen-" + name).classList.add("active");
+  const target = document.getElementById("screen-" + name);
+  if (!target) return;
+  target.classList.add("active");
   APP.screen = name;
   window.scrollTo({ top: 0, behavior: "smooth" });
   ["home","favorites","history"].forEach(n => {
@@ -61,19 +63,20 @@ function showScreen(name) {
 }
 
 function initNav() {
-  document.getElementById("nav-home").addEventListener("click", () => showScreen("home"));
-  document.getElementById("nav-favorites").addEventListener("click", () => { renderFavorites(); showScreen("favorites"); });
-  document.getElementById("nav-history").addEventListener("click", () => { renderHistory(); showScreen("history"); });
-  document.getElementById("logo-home").addEventListener("click", e => { e.preventDefault(); showScreen("home"); });
-  document.getElementById("btn-account").addEventListener("click", () => { renderProfile(); showScreen("account"); });
-  document.getElementById("back-from-results").addEventListener("click", () => showScreen("home"));
-  document.getElementById("back-from-detail").addEventListener("click", () => showScreen("results"));
-  document.getElementById("back-from-fav").addEventListener("click", () => showScreen("home"));
-  document.getElementById("back-from-hist").addEventListener("click", () => showScreen("home"));
-  document.getElementById("back-from-account").addEventListener("click", () => showScreen("home"));
-  document.getElementById("swap-mini").addEventListener("click", swapPlaces);
-  document.getElementById("clear-hist").addEventListener("click", clearHistory);
-  document.getElementById("fav-btn").addEventListener("click", toggleFavorite);
+  const safe = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener("click", fn); };
+  safe("nav-home",           () => showScreen("home"));
+  safe("nav-favorites",      () => { renderFavorites(); showScreen("favorites"); });
+  safe("nav-history",        () => { renderHistory();   showScreen("history"); });
+  safe("logo-home",          e  => { e.preventDefault(); showScreen("home"); });
+  safe("btn-account",        () => { renderProfile(); showScreen("account"); });
+  safe("back-from-results",  () => showScreen("home"));
+  safe("back-from-detail",   () => showScreen("results"));
+  safe("back-from-fav",      () => showScreen("home"));
+  safe("back-from-hist",     () => showScreen("home"));
+  safe("back-from-account",  () => showScreen("home"));
+  safe("swap-mini",          () => swapPlaces());
+  safe("clear-hist",         () => clearHistory());
+  safe("fav-btn",            () => toggleFavorite());
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
       const overlay = document.getElementById("modal-overlay");
@@ -88,6 +91,7 @@ function initSearch() {
   const inDest    = document.getElementById("input-dest");
   const btnSearch = document.getElementById("btn-search");
   const btnSwap   = document.getElementById("btn-swap");
+  if (!inOrigin || !inDest || !btnSearch) return;
 
   setupAutocomplete(inOrigin, "ac-origin", id => { APP.origin = id; APP.originLatLng = null; checkSearchReady(); });
   setupAutocomplete(inDest,   "ac-dest",   id => { APP.dest   = id; APP.destLatLng   = null; checkSearchReady(); });
@@ -95,6 +99,7 @@ function initSearch() {
   document.querySelectorAll(".sf-clear").forEach(btn => {
     btn.addEventListener("click", () => {
       const target = document.getElementById(btn.dataset.target);
+      if (!target) return;
       target.value = "";
       btn.classList.add("hidden");
       if (btn.dataset.target === "input-origin") {
@@ -110,7 +115,7 @@ function initSearch() {
   [inOrigin, inDest].forEach(inp => {
     inp.addEventListener("input", () => {
       const clearBtn = inp.parentElement.querySelector(".sf-clear");
-      clearBtn.classList.toggle("hidden", inp.value.trim() === "");
+      if (clearBtn) clearBtn.classList.toggle("hidden", inp.value.trim() === "");
       if (inp.id === "input-origin") { APP.origin = null; APP.originLatLng = null; }
       else                           { APP.dest   = null; APP.destLatLng   = null; }
       checkSearchReady();
@@ -118,7 +123,7 @@ function initSearch() {
   });
 
   btnSearch.addEventListener("click", doSearch);
-  btnSwap.addEventListener("click", swapPlaces);
+  if (btnSwap) btnSwap.addEventListener("click", swapPlaces);
   document.addEventListener("keydown", e => {
     if (e.key === "Enter" && !btnSearch.disabled) doSearch();
   });
@@ -126,6 +131,7 @@ function initSearch() {
 
 function checkSearchReady() {
   const btn = document.getElementById("btn-search");
+  if (!btn) return;
   const hasOrigin = APP.origin || APP.originLatLng;
   const hasDest   = APP.dest   || APP.destLatLng;
   const sameStop  = APP.origin && APP.dest && APP.origin === APP.dest;
@@ -134,6 +140,7 @@ function checkSearchReady() {
 
 function setupAutocomplete(input, listId, onSelect) {
   const list = document.getElementById(listId);
+  if (!list) return;
   input.addEventListener("input", () => {
     const q = input.value.trim().toLowerCase();
     if (q.length < 1) { list.hidden = true; return; }
@@ -159,7 +166,8 @@ function setupAutocomplete(input, listId, onSelect) {
         input.value = s.name;
         list.hidden = true;
         onSelect(s.id);
-        input.parentElement.querySelector(".sf-clear").classList.remove("hidden");
+        const clr = input.parentElement.querySelector(".sf-clear");
+        if (clr) clr.classList.remove("hidden");
       });
       li.addEventListener("keydown", e => {
         if (e.key === "Enter")     { li.dispatchEvent(new MouseEvent("mousedown")); }
@@ -188,11 +196,14 @@ function highlight(text, query) {
 function swapPlaces() {
   const io = document.getElementById("input-origin");
   const id = document.getElementById("input-dest");
+  if (!io || !id) return;
   [io.value, id.value]               = [id.value, io.value];
   [APP.origin,      APP.dest]         = [APP.dest,       APP.origin];
   [APP.originLatLng, APP.destLatLng]  = [APP.destLatLng, APP.originLatLng];
-  io.parentElement.querySelector(".sf-clear").classList.toggle("hidden", !io.value);
-  id.parentElement.querySelector(".sf-clear").classList.toggle("hidden", !id.value);
+  const clo = io.parentElement.querySelector(".sf-clear");
+  const cld = id.parentElement.querySelector(".sf-clear");
+  if (clo) clo.classList.toggle("hidden", !io.value);
+  if (cld) cld.classList.toggle("hidden", !id.value);
   checkSearchReady();
   showToast("Origen y destino intercambiados");
 }
@@ -201,22 +212,15 @@ function doSearch() {
   const hasOrigin = APP.origin || APP.originLatLng;
   const hasDest   = APP.dest   || APP.destLatLng;
   if (!hasOrigin || !hasDest) return;
+  if (!APP.origin || !APP.dest) { showToast("Selecciona un sector o parada válida"); return; }
 
-  const originId = APP.origin;
-  const destId   = APP.dest;
+  APP.results = findRoutes(APP.origin, APP.dest);
 
-  if (!originId || !destId) {
-    showToast("Selecciona un sector o parada válida");
-    return;
-  }
-
-  APP.results = findRoutes(originId, destId);
-
-  const o = SECTOR_BY_ID[originId];
-  const d = SECTOR_BY_ID[destId];
+  const o = SECTOR_BY_ID[APP.origin];
+  const d = SECTOR_BY_ID[APP.dest];
   if (o && d) {
     const entry = {
-      origin: originId, dest: destId,
+      origin: APP.origin, dest: APP.dest,
       label: `${o.name} → ${d.name}`,
       date: new Date().toLocaleDateString("es-EC", { day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit" }),
     };
@@ -235,7 +239,8 @@ function renderResults() {
   const oName = o?.name || "Origen";
   const dName = d?.name || "Destino";
 
-  document.getElementById("trip-summary").innerHTML = `
+  const ts = document.getElementById("trip-summary");
+  if (ts) ts.innerHTML = `
     <span class="ts-origin"><span class="ts-dot o-dot"></span>${oName}</span>
     <span class="ts-arrow">→</span>
     <span class="ts-dest"><span class="ts-dot d-dot"></span>${dName}</span>`;
@@ -246,6 +251,7 @@ function renderResults() {
 
 function renderResultsList(routes) {
   const list = document.getElementById("results-list");
+  if (!list) return;
   list.innerHTML = "";
 
   if (routes.length === 0) {
@@ -344,18 +350,21 @@ function initFilters() {
 function renderDetail(result) {
   const o = SECTOR_BY_ID[APP.origin];
   const d = SECTOR_BY_ID[APP.dest];
-  document.getElementById("detail-title").textContent =
-    `${o?.name || "Origen"} → ${d?.name || "Destino"}`;
+  const titleEl = document.getElementById("detail-title");
+  if (titleEl) titleEl.textContent = `${o?.name || "Origen"} → ${d?.name || "Destino"}`;
 
   const favBtn = document.getElementById("fav-btn");
-  const isF = isFavorite(APP.origin, APP.dest);
-  favBtn.setAttribute("aria-pressed", isF.toString());
-  favBtn.innerHTML = isF
-    ? `<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 17l-7-7a4 4 0 0 1 5.657-5.657L10 5.686l1.343-1.343A4 4 0 0 1 17 10l-7 7z"/></svg> Guardado`
-    : `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 17l-7-7a4 4 0 0 1 5.657-5.657L10 5.686l1.343-1.343A4 4 0 0 1 17 10l-7 7z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg> Guardar`;
-  favBtn.classList.toggle("saved", isF);
+  if (favBtn) {
+    const isF = isFavorite(APP.origin, APP.dest);
+    favBtn.setAttribute("aria-pressed", isF.toString());
+    favBtn.innerHTML = isF
+      ? `<svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 17l-7-7a4 4 0 0 1 5.657-5.657L10 5.686l1.343-1.343A4 4 0 0 1 17 10l-7 7z"/></svg> Guardado`
+      : `<svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 17l-7-7a4 4 0 0 1 5.657-5.657L10 5.686l1.343-1.343A4 4 0 0 1 17 10l-7 7z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg> Guardar`;
+    favBtn.classList.toggle("saved", isF);
+  }
 
   const stepsEl = document.getElementById("detail-steps");
+  if (!stepsEl) return;
   stepsEl.innerHTML = "";
   stepsEl.appendChild(makeStep("walk",
     `Dirígete al paradero en <strong>${o?.name || "tu ubicación"}</strong>`,
@@ -405,7 +414,8 @@ function renderDetail(result) {
     }
   });
 
-  document.getElementById("detail-info").innerHTML = `
+  const infoEl = document.getElementById("detail-info");
+  if (infoEl) infoEl.innerHTML = `
     <div class="di-row"><span class="di-label">Tiempo estimado</span><span class="di-val">~${result.estimatedMin} min</span></div>
     <div class="di-row"><span class="di-label">Total paradas</span><span class="di-val">${result.totalStops}</span></div>
     <div class="di-row"><span class="di-label">Transbordos</span><span class="di-val">${result.transfers}</span></div>
@@ -414,7 +424,8 @@ function renderDetail(result) {
 
   const zona  = SECTOR_BY_ID[result.legs[0]?.from]?.zona || "centro";
   const tips  = ROUTE_TIPS[zona] || ROUTE_TIPS.centro;
-  document.getElementById("detail-tips").innerHTML =
+  const tipsEl = document.getElementById("detail-tips");
+  if (tipsEl) tipsEl.innerHTML =
     `<div class="tip-box"><p>${tips[Math.floor(Math.random() * tips.length)]}</p></div>`;
 
   initDetailMap(result);
@@ -436,7 +447,7 @@ function makeStep(type, mainText, color, subText) {
 // ─── LIVE CARD ─────────────────────────────────────────────
 function initLiveCard() {
   const container = document.getElementById("lc-routes");
-  if (!POPULAR_TRIPS || POPULAR_TRIPS.length === 0) return;
+  if (!container || !POPULAR_TRIPS || POPULAR_TRIPS.length === 0) return;
   const trips = shuffle([...POPULAR_TRIPS]).slice(0, 4);
   container.innerHTML = "";
   trips.forEach(trip => {
@@ -454,12 +465,14 @@ function initLiveCard() {
       <div class="lcr-path">${trip.label}</div>
       <div class="lcr-meta">${best ? `${best.legs.length > 1 ? "Transbordo" : "Directo"} · ~${best.estimatedMin} min` : "Ver rutas"}</div>`;
     div.addEventListener("click", () => {
-      document.getElementById("input-origin").value = o.name;
-      document.getElementById("input-dest").value   = d.name;
+      const io = document.getElementById("input-origin");
+      const id = document.getElementById("input-dest");
+      if (io) io.value = o.name;
+      if (id) id.value = d.name;
       APP.origin = trip.from; APP.originLatLng = null;
       APP.dest   = trip.to;   APP.destLatLng   = null;
-      document.getElementById("input-origin").parentElement.querySelector(".sf-clear").classList.remove("hidden");
-      document.getElementById("input-dest").parentElement.querySelector(".sf-clear").classList.remove("hidden");
+      if (io) io.parentElement.querySelector(".sf-clear")?.classList.remove("hidden");
+      if (id) id.parentElement.querySelector(".sf-clear")?.classList.remove("hidden");
       checkSearchReady();
       doSearch();
     });
@@ -471,6 +484,7 @@ function initLiveCard() {
 // ─── SECTORES RÁPIDOS ──────────────────────────────────────
 function initQuickSectors() {
   const container = document.getElementById("qs-chips");
+  if (!container) return;
   if (!POPULAR_SECTORS || POPULAR_SECTORS.length === 0) return;
   POPULAR_SECTORS.forEach(id => {
     const s = SECTOR_BY_ID[id];
@@ -481,9 +495,10 @@ function initQuickSectors() {
     btn.setAttribute("aria-label", `Buscar rutas hacia ${s.name}`);
     btn.addEventListener("click", () => {
       const inDest = document.getElementById("input-dest");
+      if (!inDest) return;
       inDest.value = s.name;
       APP.dest = s.id; APP.destLatLng = null;
-      inDest.parentElement.querySelector(".sf-clear").classList.remove("hidden");
+      inDest.parentElement.querySelector(".sf-clear")?.classList.remove("hidden");
       checkSearchReady();
       showToast(`Destino: ${s.name}`);
     });
@@ -495,6 +510,7 @@ function initQuickSectors() {
 function initExpertSearch() {
   const input   = document.getElementById("expert-input");
   const results = document.getElementById("expert-results");
+  if (!input || !results) return;
   input.addEventListener("input", () => {
     const q = input.value.trim().toLowerCase();
     if (q.length < 1) { results.hidden = true; return; }
@@ -526,13 +542,16 @@ function initExpertSearch() {
         APP.dest   = route.stops[route.stops.length - 1]; APP.destLatLng = null;
         const o = SECTOR_BY_ID[APP.origin];
         const d = SECTOR_BY_ID[APP.dest];
-        document.getElementById("input-origin").value = o?.name || "";
-        document.getElementById("input-dest").value   = d?.name || "";
+        const io = document.getElementById("input-origin");
+        const id = document.getElementById("input-dest");
+        if (io) io.value = o?.name || "";
+        if (id) id.value = d?.name || "";
         APP.results = findRoutes(APP.origin, APP.dest);
         renderResults();
         showScreen("results");
         results.hidden = true;
-        document.getElementById("expert-panel").removeAttribute("open");
+        const panel = document.getElementById("expert-panel");
+        if (panel) panel.removeAttribute("open");
       });
       results.appendChild(li);
     });
@@ -570,6 +589,7 @@ function toggleFavorite() {
 
 function renderFavorites() {
   const list = document.getElementById("favorites-list");
+  if (!list) return;
   list.innerHTML = "";
   if (APP.favorites.length === 0) {
     list.innerHTML = `<div class="empty-state"><p>No tienes rutas guardadas aún.</p><p>Busca una ruta y toca <strong>Guardar</strong>.</p></div>`;
@@ -594,10 +614,10 @@ function renderFavorites() {
       APP.originLatLng = null; APP.destLatLng = null;
       const o = SECTOR_BY_ID[fav.origin];
       const d = SECTOR_BY_ID[fav.dest];
-      document.getElementById("input-origin").value = o?.name || "";
-      document.getElementById("input-dest").value   = d?.name || "";
-      document.getElementById("input-origin").parentElement.querySelector(".sf-clear").classList.remove("hidden");
-      document.getElementById("input-dest").parentElement.querySelector(".sf-clear").classList.remove("hidden");
+      const io = document.getElementById("input-origin");
+      const id = document.getElementById("input-dest");
+      if (io) { io.value = o?.name || ""; io.parentElement.querySelector(".sf-clear")?.classList.remove("hidden"); }
+      if (id) { id.value = d?.name || ""; id.parentElement.querySelector(".sf-clear")?.classList.remove("hidden"); }
       APP.results = findRoutes(fav.origin, fav.dest);
       renderResults();
       showScreen("results");
@@ -616,12 +636,13 @@ function renderFavorites() {
 // ─── HISTORIAL ─────────────────────────────────────────────
 function renderHistory() {
   const list = document.getElementById("history-list");
+  if (!list) return;
   list.innerHTML = "";
   if (APP.history.length === 0) {
     list.innerHTML = `<div class="empty-state"><p>Tu historial aparecerá aquí.</p></div>`;
     return;
   }
-  APP.history.forEach((entry, i) => {
+  APP.history.forEach((entry) => {
     const card = document.createElement("div");
     card.className = "hist-card";
     card.innerHTML = `
@@ -635,10 +656,10 @@ function renderHistory() {
       APP.originLatLng = null;   APP.destLatLng = null;
       const o = SECTOR_BY_ID[entry.origin];
       const d = SECTOR_BY_ID[entry.dest];
-      document.getElementById("input-origin").value = o?.name || "";
-      document.getElementById("input-dest").value   = d?.name || "";
-      document.getElementById("input-origin").parentElement.querySelector(".sf-clear").classList.remove("hidden");
-      document.getElementById("input-dest").parentElement.querySelector(".sf-clear").classList.remove("hidden");
+      const io = document.getElementById("input-origin");
+      const id = document.getElementById("input-dest");
+      if (io) { io.value = o?.name || ""; io.parentElement.querySelector(".sf-clear")?.classList.remove("hidden"); }
+      if (id) { id.value = d?.name || ""; id.parentElement.querySelector(".sf-clear")?.classList.remove("hidden"); }
       APP.results = findRoutes(entry.origin, entry.dest);
       renderResults();
       showScreen("results");
@@ -657,16 +678,9 @@ function clearHistory() {
   });
 }
 
-// ══════════════════════════════════════════════════════════
-//  AUTH — FIX COMPLETO
-//  · Selector de dominio (@gmail.com / @hotmail.com / @outlook.com)
-//  · Valida exactamente un solo "@"
-//  · Valida que el dominio sea uno de los permitidos
-//  · Usa SHA-256 real (WebCrypto) igual que SupabaseAuth
-// ══════════════════════════════════════════════════════════
+// ─── AUTH ──────────────────────────────────────────────────
 const ALLOWED_DOMAINS = ["gmail.com", "hotmail.com", "outlook.com"];
 
-/** Valida que el email tenga exactamente un @ y dominio permitido */
 function validateEmail(email) {
   const parts = email.split("@");
   if (parts.length !== 2) return { ok: false, msg: "El correo debe tener exactamente un @" };
@@ -678,7 +692,6 @@ function validateEmail(email) {
   return { ok: true };
 }
 
-/** Construye el campo de email con selector de dominio */
 function buildEmailField(inputId) {
   return `
     <div class="email-input-group">
@@ -692,7 +705,6 @@ function buildEmailField(inputId) {
     </div>`;
 }
 
-/** Lee el valor completo del campo de email compuesto */
 function getEmailValue(inputId) {
   const local  = document.getElementById(inputId)?.value.trim() || "";
   const domain = document.getElementById(`${inputId}-domain`)?.value || "gmail.com";
@@ -700,10 +712,9 @@ function getEmailValue(inputId) {
 }
 
 function initAuth() {
-  // Inyectar campos de email con selector de dominio
-  const loginEmailWrap   = document.getElementById("login-email-wrap");
+  const loginEmailWrap    = document.getElementById("login-email-wrap");
   const registerEmailWrap = document.getElementById("reg-email-wrap");
-  if (loginEmailWrap) loginEmailWrap.innerHTML = buildEmailField("login-email");
+  if (loginEmailWrap)    loginEmailWrap.innerHTML    = buildEmailField("login-email");
   if (registerEmailWrap) registerEmailWrap.innerHTML = buildEmailField("reg-email");
 
   document.querySelectorAll(".auth-tab").forEach(tab => {
@@ -711,125 +722,99 @@ function initAuth() {
       document.querySelectorAll(".auth-tab").forEach(t => { t.classList.remove("active"); t.setAttribute("aria-selected","false"); });
       tab.classList.add("active");
       tab.setAttribute("aria-selected","true");
-      document.getElementById("form-login").classList.toggle("hidden",    tab.dataset.tab !== "login");
-      document.getElementById("form-register").classList.toggle("hidden", tab.dataset.tab !== "register");
+      const fl = document.getElementById("form-login");
+      const fr = document.getElementById("form-register");
+      if (fl) fl.classList.toggle("hidden", tab.dataset.tab !== "login");
+      if (fr) fr.classList.toggle("hidden", tab.dataset.tab !== "register");
     });
   });
   document.querySelectorAll(".link-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-      document.querySelector(`.auth-tab[data-tab="${btn.dataset.tab}"]`).click();
+      document.querySelector(`.auth-tab[data-tab="${btn.dataset.tab}"]`)?.click();
     });
   });
 
-  // ── LOGIN ──
-  document.getElementById("btn-login").addEventListener("click", async () => {
+  const btnLogin = document.getElementById("btn-login");
+  if (btnLogin) btnLogin.addEventListener("click", async () => {
     const email = getEmailValue("login-email");
-    const pass  = document.getElementById("login-pass").value;
+    const pass  = document.getElementById("login-pass")?.value;
     const err   = document.getElementById("login-error");
-
     if (!email || !pass) { showError(err, "Completa todos los campos"); return; }
-
     const emailCheck = validateEmail(email);
     if (!emailCheck.ok) { showError(err, emailCheck.msg); return; }
-
-    // Intentar primero con Supabase (auth real)
     try {
       const userData = await SupabaseAuth.login({ correo: email, password: pass });
       APP.user = { name: `${userData.nombre} ${userData.apellido || ""}`.trim(), email: userData.correo };
-      saveStorage();
-      updateAccountLabel();
-      renderProfile();
+      saveStorage(); updateAccountLabel(); renderProfile();
       showToast(`Bienvenido, ${APP.user.name} 👋`);
-      err.classList.add("hidden");
+      if (err) err.classList.add("hidden");
       return;
-    } catch (supaErr) {
-      // Si falla Supabase, caer a localStorage
-    }
-
-    // Fallback localStorage
+    } catch (supaErr) {}
     const accounts = getAccounts();
-    if (!accounts[email])                              { showError(err, "No existe una cuenta con ese correo"); return; }
+    if (!accounts[email]) { showError(err, "No existe una cuenta con ese correo"); return; }
     const hash = await sha256(pass);
     if (accounts[email].pass !== hash && accounts[email].pass !== btoa(pass)) {
       showError(err, "Contraseña incorrecta"); return;
     }
     APP.user = { name: accounts[email].name, email };
-    saveStorage();
-    updateAccountLabel();
-    renderProfile();
+    saveStorage(); updateAccountLabel(); renderProfile();
     showToast(`Bienvenido, ${APP.user.name} 👋`);
-    err.classList.add("hidden");
+    if (err) err.classList.add("hidden");
   });
 
-  // ── REGISTRO ──
-  document.getElementById("btn-register").addEventListener("click", async () => {
-    const name  = document.getElementById("reg-name").value.trim();
+  const btnRegister = document.getElementById("btn-register");
+  if (btnRegister) btnRegister.addEventListener("click", async () => {
+    const name  = document.getElementById("reg-name")?.value.trim();
     const email = getEmailValue("reg-email");
-    const pass  = document.getElementById("reg-pass").value;
+    const pass  = document.getElementById("reg-pass")?.value;
     const err   = document.getElementById("reg-error");
-
     if (!name || !email || !pass) { showError(err, "Completa todos los campos"); return; }
-
     const emailCheck = validateEmail(email);
     if (!emailCheck.ok) { showError(err, emailCheck.msg); return; }
-
     if (pass.length < 6) { showError(err, "La contraseña debe tener al menos 6 caracteres"); return; }
-
-    // Intentar primero con Supabase
     try {
       const nameParts = name.trim().split(" ");
-      const nombre    = nameParts[0];
-      const apellido  = nameParts.slice(1).join(" ") || "";
-      await SupabaseAuth.register({ nombre, apellido, cedula: "", correo: email, password: pass });
+      await SupabaseAuth.register({ nombre: nameParts[0], apellido: nameParts.slice(1).join(" ") || "", cedula: "", correo: email, password: pass });
       APP.user = { name, email };
-      saveStorage();
-      updateAccountLabel();
-      renderProfile();
+      saveStorage(); updateAccountLabel(); renderProfile();
       showToast(`Cuenta creada. ¡Bienvenido, ${name}! 🎉`);
-      err.classList.add("hidden");
+      if (err) err.classList.add("hidden");
       return;
     } catch (supaErr) {
-      // Si el error es de duplicado, mostrarlo
       if (supaErr.message?.includes("registrado") || supaErr.message?.includes("duplicado")) {
         showError(err, supaErr.message); return;
       }
-      // Si no, caer a localStorage
     }
-
-    // Fallback localStorage
     const accounts = getAccounts();
     if (accounts[email]) { showError(err, "Ya existe una cuenta con ese correo"); return; }
     const hash = await sha256(pass);
     accounts[email] = { name, pass: hash };
     localStorage.setItem("bq_accounts", JSON.stringify(accounts));
     APP.user = { name, email };
-    saveStorage();
-    updateAccountLabel();
-    renderProfile();
+    saveStorage(); updateAccountLabel(); renderProfile();
     showToast(`Cuenta creada. ¡Bienvenido, ${name}! 🎉`);
-    err.classList.add("hidden");
+    if (err) err.classList.add("hidden");
   });
 
   document.querySelectorAll(".pass-toggle").forEach(btn => {
     btn.addEventListener("click", () => {
       const inp = document.getElementById(btn.dataset.target);
+      if (!inp) return;
       inp.type = inp.type === "password" ? "text" : "password";
       btn.textContent = inp.type === "password" ? "👁" : "🙈";
     });
   });
 
-  document.getElementById("btn-logout").addEventListener("click", () => {
+  const btnLogout = document.getElementById("btn-logout");
+  if (btnLogout) btnLogout.addEventListener("click", () => {
     showModal("Cerrar sesión", "¿Seguro que quieres cerrar sesión?", () => {
-      APP.user = null;
-      saveStorage();
-      updateAccountLabel();
-      renderProfile();
+      APP.user = null; saveStorage(); updateAccountLabel(); renderProfile();
       showToast("Sesión cerrada");
     });
   });
 
-  document.getElementById("pgo-fav").addEventListener("click",  () => { renderFavorites(); showScreen("favorites"); });
-  document.getElementById("pgo-hist").addEventListener("click", () => { renderHistory();   showScreen("history"); });
+  document.getElementById("pgo-fav")?.addEventListener("click",  () => { renderFavorites(); showScreen("favorites"); });
+  document.getElementById("pgo-hist")?.addEventListener("click", () => { renderHistory();   showScreen("history"); });
 }
 
 function getAccounts() {
@@ -843,12 +828,15 @@ async function sha256(str) {
 
 function renderProfile() {
   const isLoggedIn = !!APP.user;
-  document.getElementById("view-auth").classList.toggle("hidden", isLoggedIn);
-  document.getElementById("view-profile").classList.toggle("hidden", !isLoggedIn);
+  document.getElementById("view-auth")?.classList.toggle("hidden", isLoggedIn);
+  document.getElementById("view-profile")?.classList.toggle("hidden", !isLoggedIn);
   if (isLoggedIn) {
-    document.getElementById("profile-name").textContent   = APP.user.name;
-    document.getElementById("profile-email").textContent  = APP.user.email;
-    document.getElementById("profile-avatar").textContent = APP.user.name.charAt(0).toUpperCase();
+    const pn = document.getElementById("profile-name");
+    const pe = document.getElementById("profile-email");
+    const pa = document.getElementById("profile-avatar");
+    if (pn) pn.textContent  = APP.user.name;
+    if (pe) pe.textContent  = APP.user.email;
+    if (pa) pa.textContent  = APP.user.name.charAt(0).toUpperCase();
     updateProfileStats();
   }
 }
@@ -861,10 +849,12 @@ function updateProfileStats() {
 }
 
 function updateAccountLabel() {
-  document.getElementById("account-label").textContent = APP.user ? APP.user.name.split(" ")[0] : "Entrar";
+  const el = document.getElementById("account-label");
+  if (el) el.textContent = APP.user ? APP.user.name.split(" ")[0] : "Entrar";
 }
 
 function showError(el, msg) {
+  if (!el) return;
   el.textContent = msg;
   el.classList.remove("hidden");
   setTimeout(() => el.classList.add("hidden"), 4000);
@@ -872,10 +862,13 @@ function showError(el, msg) {
 
 // ─── MODAL ────────────────────────────────────────────────
 function showModal(title, body, onConfirm) {
-  document.getElementById("modal-title").textContent = title;
-  document.getElementById("modal-body").textContent  = body;
+  const mt = document.getElementById("modal-title");
+  const mb = document.getElementById("modal-body");
+  if (mt) mt.textContent = title;
+  if (mb) mb.textContent = body;
   const confirmBtn = document.getElementById("modal-confirm");
   const cancelBtn  = document.getElementById("modal-cancel");
+  if (!confirmBtn || !cancelBtn) return;
   const newConfirm = confirmBtn.cloneNode(true);
   const newCancel  = cancelBtn.cloneNode(true);
   confirmBtn.parentNode.replaceChild(newConfirm, confirmBtn);
@@ -883,8 +876,7 @@ function showModal(title, body, onConfirm) {
   newConfirm.addEventListener("click", () => { closeModal(); onConfirm(); });
   newCancel.addEventListener("click", closeModal);
   const overlay = document.getElementById("modal-overlay");
-  overlay.classList.add("is-open");
-  overlay.onclick = e => { if (e.target === overlay) closeModal(); };
+  if (overlay) { overlay.classList.add("is-open"); overlay.onclick = e => { if (e.target === overlay) closeModal(); }; }
 }
 
 function closeModal() {
@@ -896,6 +888,7 @@ function closeModal() {
 let toastTimer;
 function showToast(msg) {
   const t = document.getElementById("toast");
+  if (!t) return;
   t.textContent = msg;
   t.classList.remove("hidden");
   clearTimeout(toastTimer);
@@ -910,12 +903,13 @@ function initA11y() {
     cur = s;
     document.documentElement.style.setProperty("--base-font", sizes[s]);
     document.querySelectorAll(".a11y-btn[id^=font]").forEach(b => b.classList.remove("active"));
-    document.getElementById(`font-${s}`).classList.add("active");
+    const el = document.getElementById(`font-${s}`);
+    if (el) el.classList.add("active");
     localStorage.setItem("bq_font", s);
   }
-  document.getElementById("font-sm").addEventListener("click", () => setFont("sm"));
-  document.getElementById("font-md").addEventListener("click", () => setFont("md"));
-  document.getElementById("font-lg").addEventListener("click", () => setFont("lg"));
+  document.getElementById("font-sm")?.addEventListener("click", () => setFont("sm"));
+  document.getElementById("font-md")?.addEventListener("click", () => setFont("md"));
+  document.getElementById("font-lg")?.addEventListener("click", () => setFont("lg"));
   setFont(cur);
 
   let hc = localStorage.getItem("bq_hc") === "1";
@@ -923,11 +917,10 @@ function initA11y() {
   function setContrast(v) {
     hc = v;
     document.body.classList.toggle("high-contrast", v);
-    hcBtn.classList.toggle("active", v);
-    hcBtn.setAttribute("aria-pressed", v.toString());
+    if (hcBtn) { hcBtn.classList.toggle("active", v); hcBtn.setAttribute("aria-pressed", v.toString()); }
     localStorage.setItem("bq_hc", v ? "1" : "0");
   }
-  hcBtn.addEventListener("click", () => setContrast(!hc));
+  hcBtn?.addEventListener("click", () => setContrast(!hc));
   setContrast(hc);
 }
 
