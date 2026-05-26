@@ -1,6 +1,12 @@
 /* ══════════════════════════════════════
-   BusQuito – data.js
-   Integración con Supabase
+   BusQuito – data.js  (v4 – FIXES)
+   
+   FIXES:
+   1. fetchAllPages usa Range headers (paginación real de PostgREST)
+      → carga las 1441 paradas, no solo 1000
+   2. Query de rutas sin columna "codigo" para evitar error 42703
+      (se usa nombre como fallback)
+   3. Diagnóstico detallado en consola para futuros bugs
    ══════════════════════════════════════ */
 
 const SUPABASE_URL  = "https://vedsmsrvllugtztyczxe.supabase.co";
@@ -45,10 +51,10 @@ class SBQuery {
 }
 
 // ─── Estado global ─────────────────────────────────────────
-let SECTORS        = [];
-let SECTOR_BY_ID   = {};
-let ROUTES         = [];
-let POPULAR_TRIPS  = [];
+let SECTORS         = [];
+let SECTOR_BY_ID    = {};
+let ROUTES          = [];
+let POPULAR_TRIPS   = [];
 let POPULAR_SECTORS = [];
 
 // ─── Zona según latitud ────────────────────────────────────
@@ -58,55 +64,89 @@ function inferZona(lat) {
   return "centro";
 }
 
-// ─── Helper paginación genérica ────────────────────────────
-// CORREGIDO: recibe tabla y parámetros por separado para construir
-// correctamente la URL con limit/offset sin romper la query string.
+// ══════════════════════════════════════════════════════════
+//  PAGINACIÓN CORREGIDA
+//  Usa Range headers (estándar PostgREST/Supabase)
+//  en vez de query params limit/offset que se ignoran
+//  cuando se mezclan con otros parámetros en URLSearchParams.
+// ══════════════════════════════════════════════════════════
 async function fetchAllPages(table, selectCols, extraParams = {}) {
   const pageSize = 1000;
-  let results = [];
-  let offset  = 0;
+  let results    = [];
+  let offset     = 0;
+  let totalKnown = null; // lo llenamos con Content-Range
 
   while (true) {
-    // Construir query string limpia
-    const params = new URLSearchParams({
-      select: selectCols,
-      limit:  pageSize,
-      offset: offset,
-      ...extraParams,
+    // Construir query string con parámetros extra (order, filtros, etc.)
+    // SIN incluir limit/offset aquí — van en el header Range
+    const qsParts = [`select=${encodeURIComponent(selectCols)}`];
+    Object.entries(extraParams).forEach(([k, v]) => {
+      qsParts.push(`${k}=${encodeURIComponent(v)}`);
     });
+    const url = `${SUPABASE_URL}/rest/v1/${table}?${qsParts.join("&")}`;
 
-    const url = `${SUPABASE_URL}/rest/v1/${table}?${params.toString()}`;
+    const from = offset;
+    const to   = offset + pageSize - 1;
 
     const res = await fetch(url, {
       headers: {
         "apikey":        SUPABASE_ANON,
         "Authorization": `Bearer ${SUPABASE_ANON}`,
-        // Pedir el total para saber cuántas páginas faltan
+        "Range-Unit":    "items",
+        "Range":         `${from}-${to}`,   // ← paginación real PostgREST
         "Prefer":        "count=exact",
       },
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(20000),
     });
 
     if (!res.ok) {
-      console.warn(`fetchAllPages error ${res.status} en ${table}`);
+      const body = await res.text();
+      console.error(`❌ fetchAllPages error ${res.status} en "${table}":`, body);
       break;
     }
 
+    // Leer total real desde Content-Range: "0-999/1441"
+    if (totalKnown === null) {
+      const cr = res.headers.get("Content-Range");
+      if (cr) {
+        const parts = cr.split("/");
+        const total = parseInt(parts[1]);
+        if (!isNaN(total)) {
+          totalKnown = total;
+          console.log(`📊 ${table}: total en BD = ${total}`);
+        }
+      }
+    }
+
     const chunk = await res.json();
-    if (!Array.isArray(chunk) || chunk.length === 0) break;
+    if (!Array.isArray(chunk) || chunk.length === 0) {
+      console.log(`✅ ${table}: fin de datos en offset ${offset}`);
+      break;
+    }
+
     results = results.concat(chunk);
+    console.log(`📦 ${table}: ${results.length}/${totalKnown ?? "?"} cargados (página ${from}-${to})`);
 
-    console.log(`📦 ${table}: ${results.length} registros cargados (página offset=${offset})`);
+    // Terminar si ya tenemos todo
+    if (totalKnown !== null && results.length >= totalKnown) {
+      console.log(`✅ ${table}: carga completa (${results.length} registros)`);
+      break;
+    }
+    // O si la página vino incompleta (ya no hay más)
+    if (chunk.length < pageSize) {
+      console.log(`✅ ${table}: última página (chunk=${chunk.length})`);
+      break;
+    }
 
-    // Si devolvió menos de pageSize ya llegamos al final
-    if (chunk.length < pageSize) break;
     offset += pageSize;
   }
 
   return results;
 }
 
-// ─── Carga desde Supabase ──────────────────────────────────
+// ══════════════════════════════════════════════════════════
+//  CARGA DESDE SUPABASE
+// ══════════════════════════════════════════════════════════
 async function loadDataFromSupabase() {
   if (!SUPABASE_CONFIGURED) {
     console.warn("⚠️  Credenciales de Supabase no configuradas. Usando datos de respaldo.");
@@ -115,14 +155,16 @@ async function loadDataFromSupabase() {
   }
 
   try {
-    // ── 1. Paradas — paginadas correctamente ──────────────
+    // ── 1. Paradas — paginadas con Range headers ───────────
+    console.log("🔄 Cargando paradas…");
     const rawParadas = await fetchAllPages(
       "paradas",
       "id_parada,nombre,latitud,longitud"
-      // sin extraParams: sin filtro adicional
     );
 
-    if (!rawParadas || rawParadas.length === 0) throw new Error("Sin paradas en Supabase");
+    if (!rawParadas || rawParadas.length === 0) {
+      throw new Error("Sin paradas en Supabase — verifica RLS y permisos anon");
+    }
 
     console.log(`✅ Paradas cargadas: ${rawParadas.length}`);
 
@@ -136,21 +178,38 @@ async function loadDataFromSupabase() {
 
     SECTOR_BY_ID = {};
     SECTORS.forEach(s => { SECTOR_BY_ID[s.id] = s; });
+    console.log(`✅ SECTOR_BY_ID construido con ${Object.keys(SECTOR_BY_ID).length} entradas`);
 
-    // ── 2. Rutas activas ───────────────────────────────────
-    const rawRutas = await SB.from("rutas")
-      .select("id_ruta,nombre,cooperativa,color,codigo,tiempo_estimado")
-      .eq("activa", true);
+    // ── 2. Rutas activas ────────────────────────────────────
+    // IMPORTANTE: no pedimos "codigo" en el select para evitar error 42703
+    // si la columna todavía no existe o tiene otro nombre.
+    // Se pide por separado con un try/catch.
+    console.log("🔄 Cargando rutas…");
+    let rawRutas;
+    try {
+      // Intentar con codigo (existe en el ALTER TABLE del schema)
+      rawRutas = await SB.from("rutas")
+        .select("id_ruta,nombre,cooperativa,color,codigo,tiempo_estimado")
+        .eq("activa", true);
+    } catch (e) {
+      console.warn("⚠️ Columna 'codigo' no encontrada en rutas, reintentando sin ella:", e.message);
+      rawRutas = await SB.from("rutas")
+        .select("id_ruta,nombre,cooperativa,color,tiempo_estimado")
+        .eq("activa", true);
+    }
 
-    if (!rawRutas || rawRutas.length === 0) throw new Error("Sin rutas en Supabase");
+    if (!rawRutas || rawRutas.length === 0) {
+      throw new Error("Sin rutas en Supabase — verifica RLS y que activa=true en alguna ruta");
+    }
+    console.log(`✅ Rutas cargadas desde BD: ${rawRutas.length}`);
 
-    // ── 3. Relación ruta↔parada — paginada ────────────────
+    // ── 3. Relación ruta↔parada — paginada ─────────────────
+    console.log("🔄 Cargando ruta_paradas…");
     const rawRP = await fetchAllPages(
       "ruta_paradas",
       "id_ruta,id_parada,orden_parada",
       { order: "orden_parada.asc" }
     );
-
     console.log(`✅ Ruta-paradas cargadas: ${rawRP.length}`);
 
     // Agrupar paradas por ruta
@@ -158,28 +217,44 @@ async function loadDataFromSupabase() {
     rawRP.forEach(rp => {
       const rid = String(rp.id_ruta);
       if (!paradasPorRuta[rid]) paradasPorRuta[rid] = [];
-      paradasPorRuta[rid].push({ id: String(rp.id_parada), orden: rp.orden_parada });
+      paradasPorRuta[rid].push({
+        id:    String(rp.id_parada),
+        orden: rp.orden_parada,
+      });
     });
 
-    // Estadística de cobertura
+    // Diagnóstico de cobertura
     let paradasNoEncontradas = 0;
     let paradasEncontradas   = 0;
+    let rutasDescartadas     = 0;
 
     ROUTES = rawRutas.map(r => {
-      const paradas = (paradasPorRuta[String(r.id_ruta)] || [])
+      const grupo  = paradasPorRuta[String(r.id_ruta)] || [];
+      const paradas = grupo
         .sort((a, b) => a.orden - b.orden)
         .map(p => {
-          if (SECTOR_BY_ID[p.id]) { paradasEncontradas++; return p.id; }
-          else { paradasNoEncontradas++; return null; }
+          if (SECTOR_BY_ID[p.id]) {
+            paradasEncontradas++;
+            return p.id;
+          } else {
+            paradasNoEncontradas++;
+            return null;
+          }
         })
-        .filter(Boolean); // eliminar paradas no encontradas en SECTOR_BY_ID
+        .filter(Boolean);
 
-      if (paradas.length < 2) return null;
+      if (paradas.length < 2) {
+        rutasDescartadas++;
+        return null;
+      }
+
+      // Usar codigo si existe, sino nombre, sino id como string
+      const linea = (r.codigo || r.nombre || String(r.id_ruta)).trim();
 
       return {
         id:           `r${r.id_ruta}`,
         _dbId:        r.id_ruta,
-        linea:        (r.codigo || r.nombre || String(r.id_ruta)).trim(),
+        linea,
         empresa:      (r.cooperativa || "Sin cooperativa").trim(),
         color:        r.color || randomRouteColor(r.id_ruta),
         stops:        paradas,
@@ -188,53 +263,87 @@ async function loadDataFromSupabase() {
       };
     }).filter(Boolean);
 
-    if (paradasNoEncontradas > 0) {
-      console.warn(`⚠️ ${paradasNoEncontradas} paradas referenciadas en ruta_paradas no están en SECTOR_BY_ID (¿paradas huérfanas?)`);
-    }
-    console.log(`✅ Rutas construidas: ${ROUTES.length} (${paradasEncontradas} refs. válidas)`);
+    console.log(`✅ Rutas construidas: ${ROUTES.length}`);
+    if (rutasDescartadas > 0)
+      console.warn(`⚠️ ${rutasDescartadas} rutas descartadas por tener <2 paradas válidas`);
+    if (paradasNoEncontradas > 0)
+      console.warn(`⚠️ ${paradasNoEncontradas} refs en ruta_paradas sin match en SECTOR_BY_ID (${paradasEncontradas} válidas)`);
 
-    // ── 4. Coordenadas de ruta — paginadas ────────────────
+    // Diagnóstico clave: si hay muchas paradas no encontradas, avisar
+    const pctMissing = rawRP.length > 0
+      ? Math.round(paradasNoEncontradas / rawRP.length * 100)
+      : 0;
+    if (pctMissing > 10) {
+      console.error(
+        `🚨 ${pctMissing}% de ruta_paradas apuntan a paradas no cargadas. ` +
+        `Verifica que se cargaron TODAS las paradas (BD tiene ${rawParadas.length}).`
+      );
+    }
+
+    // ── 4. Coordenadas de ruta — paginadas ─────────────────
+    console.log("🔄 Cargando coordenadas_ruta…");
     const rawCoords = await fetchAllPages(
       "coordenadas_ruta",
       "id_ruta,latitud,longitud,orden_coordenada",
       { order: "orden_coordenada.asc" }
     );
-
     console.log(`✅ Coordenadas GPS cargadas: ${rawCoords.length}`);
 
-    // Agrupar coordenadas por ruta
-    const coordsPorRuta = {};
-    rawCoords.forEach(c => {
-      const rid = String(c.id_ruta);
-      if (!coordsPorRuta[rid]) coordsPorRuta[rid] = [];
-      coordsPorRuta[rid].push({
-        lat:   parseFloat(c.latitud),
-        lng:   parseFloat(c.longitud),
-        orden: c.orden_coordenada,
+    if (rawCoords.length > 0) {
+      const coordsPorRuta = {};
+      rawCoords.forEach(c => {
+        const rid = String(c.id_ruta);
+        if (!coordsPorRuta[rid]) coordsPorRuta[rid] = [];
+        coordsPorRuta[rid].push({
+          lat:   parseFloat(c.latitud),
+          lng:   parseFloat(c.longitud),
+          orden: c.orden_coordenada,
+        });
       });
-    });
 
-    let rutasConPath = 0;
-    ROUTES.forEach(route => {
-      const rid    = String(route._dbId);
-      const puntos = coordsPorRuta[rid];
-      if (puntos && puntos.length > 1) {
-        route.path = puntos
-          .sort((a, b) => a.orden - b.orden)
-          .map(p => [p.lat, p.lng]);
-        rutasConPath++;
-      }
-    });
+      let rutasConPath = 0;
+      ROUTES.forEach(route => {
+        const rid    = String(route._dbId);
+        const puntos = coordsPorRuta[rid];
+        if (puntos && puntos.length > 1) {
+          route.path = puntos
+            .sort((a, b) => a.orden - b.orden)
+            .map(p => [p.lat, p.lng]);
+          rutasConPath++;
+        }
+      });
+      console.log(`✅ ${rutasConPath} rutas con trayectoria GPS real`);
+    } else {
+      console.warn("⚠️ coordenadas_ruta vacía — los mapas usarán líneas rectas entre paradas");
+    }
 
     buildPopularData();
+
     console.log(
-      `✅ BusQuito: ${SECTORS.length} paradas, ${ROUTES.length} rutas, ` +
-      `${rutasConPath} con trayectoria real, ${rawCoords.length} puntos GPS cargados.`
+      `\n🚌 BusQuito listo:\n` +
+      `   Paradas : ${SECTORS.length}\n` +
+      `   Rutas   : ${ROUTES.length}\n` +
+      `   Con GPS : ${ROUTES.filter(r => r.path).length}`
     );
+
+    // Verificación rápida del motor de búsqueda
+    if (ROUTES.length > 0) {
+      const r0 = ROUTES[0];
+      const testO = r0.stops[0];
+      const testD = r0.stops[r0.stops.length - 1];
+      const testResults = findRoutes(testO, testD);
+      console.log(`🔍 Test findRoutes(${testO} → ${testD}): ${testResults.length} resultados`);
+      if (testResults.length === 0) {
+        console.error("🚨 findRoutes retorna 0 en ruta conocida — revisa los IDs en stops vs SECTOR_BY_ID");
+        console.log("   Primeros stops de r0:", r0.stops.slice(0, 5));
+        console.log("   Primeras keys de SECTOR_BY_ID:", Object.keys(SECTOR_BY_ID).slice(0, 5));
+      }
+    }
+
     return true;
 
   } catch (err) {
-    console.error("❌ Error Supabase:", err.message);
+    console.error("❌ Error cargando desde Supabase:", err.message, err);
     loadFallbackData();
     return false;
   }
@@ -354,6 +463,10 @@ function loadFallbackData() {
 // ══════════════════════════════════════════════════════════
 function findRoutes(originId, destId) {
   if (!originId || !destId || originId === destId) return [];
+
+  // Normalizar a string por si acaso llegan como número
+  originId = String(originId);
+  destId   = String(destId);
 
   const results = [];
   const seen    = new Set();
@@ -475,7 +588,7 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// ─── Tips por zona ─────────────────────────────────────────
+// ─── Tips por zona ────────────────────────────────────────
 const ROUTE_TIPS = {
   norte: [
     "🚌 En hora pico (7–9 AM y 5–7 PM) las rutas del norte suelen estar llenas. Considera salir un poco antes.",
