@@ -138,13 +138,7 @@
         </div>
       </div>
     </div>
-
   </section>
-
-  <div class="quick-sectors" aria-label="Sectores populares">
-    <span class="qs-label">Destinos frecuentes:</span>
-    <div class="qs-chips" id="qs-chips"></div>
-  </div>
 
   <div class="stats-bar" aria-label="Estadísticas del sistema">
     <div class="stat-item"><span class="stat-n">35+</span><span class="stat-l">Empresas</span></div>
@@ -269,18 +263,16 @@
       </div>
 
       <!-- Login form -->
-       <div id="form-login" class="auth-form" role="tabpanel">
+      <div id="form-login" class="auth-form" role="tabpanel">
         <div class="form-field">
           <label for="login-email">Correo electrónico</label>
           <div id="login-email-wrap"></div>
         </div>
-
         <div class="form-field">
           <label for="login-pass">Contraseña</label>
           <input id="login-pass" type="password" placeholder="Tu contraseña" autocomplete="current-password"/>
           <button class="pass-toggle" data-target="login-pass" aria-label="Mostrar/ocultar contraseña">👁</button>
         </div>
-
         <div class="form-error hidden" id="login-error" role="alert"></div>
         <button class="btn-auth" id="btn-login">Iniciar sesión</button>
         <p class="auth-hint">¿No tienes cuenta? <button class="link-btn" data-tab="register">Créala aquí</button></p>
@@ -292,23 +284,20 @@
           <label for="reg-name">Nombre completo</label>
           <input id="reg-name" type="text" placeholder="Tu nombre" autocomplete="name"/>
         </div>
-
         <div class="form-field">
           <label for="reg-email">Correo electrónico</label>
           <div id="reg-email-wrap"></div>
         </div>
-
         <div class="form-field">
           <label for="reg-pass">Contraseña</label>
           <input id="reg-pass" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"/>
           <button class="pass-toggle" data-target="reg-pass" aria-label="Mostrar/ocultar contraseña">👁</button>
         </div>
-
         <div class="form-error hidden" id="reg-error" role="alert"></div>
         <button class="btn-auth" id="btn-register">Crear cuenta</button>
         <p class="auth-hint">¿Ya tienes cuenta? <button class="link-btn" data-tab="login">Inicia sesión</button></p>
-       </div>
       </div>
+    </div>
 
     <!-- Vista: logueado -->
     <div id="view-profile" class="profile-card hidden">
@@ -338,10 +327,9 @@
           <input type="checkbox" id="pref-notif" role="switch" aria-label="Activar notificaciones de rutas populares"/>
         </label>
       </div>
-    </div><!-- fin view-profile -->
-
-  </div><!-- fin screen-inner -->
-</div><!-- fin screen-account -->
+    </div>
+  </div>
+</div>
 
 <!-- ══ MODAL: SELECCIÓN EN MAPA ══ -->
 <div id="map-picker-modal" class="map-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="map-modal-title">
@@ -381,7 +369,7 @@
   </div>
 </div>
 
-<!-- ══ SCRIPTS AL FINAL DEL BODY — SIN defer, EN ORDEN ══ -->
+<!-- ══ SCRIPTS AL FINAL — SIN defer, EN ORDEN ══ -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js"></script>
 <script src="maps.js"></script>
