@@ -1,12 +1,11 @@
 /* ══════════════════════════════════════
-   BusQuito – data.js  (v4 – FIXES)
+   BusQuito – data.js  (v5 – FIXES RUTAS)
    
    FIXES:
-   1. fetchAllPages usa Range headers (paginación real de PostgREST)
-      → carga las 1441 paradas, no solo 1000
-   2. Query de rutas sin columna "codigo" para evitar error 42703
-      (se usa nombre como fallback)
-   3. Diagnóstico detallado en consola para futuros bugs
+   1. fetchAllPages: extraParams sin doble-encode
+   2. Rutas: usa fetchAllPages en vez de SBQuery
+   3. Fallback: si activa=eq.true falla, filtra en JS
+   4. SECTOR_BY_ID indexado por string Y número
    ══════════════════════════════════════ */
 
 const SUPABASE_URL  = "https://vedsmsrvllugtztyczxe.supabase.co";
@@ -17,38 +16,6 @@ const SUPABASE_CONFIGURED =
   !SUPABASE_URL.includes("TU_PROYECTO") &&
   SUPABASE_ANON.length > 20 &&
   !SUPABASE_ANON.includes("TU_ANON");
-
-// ─── Cliente Supabase mínimo ───────────────────────────────
-const SB = { from(table) { return new SBQuery(table); } };
-
-class SBQuery {
-  constructor(table) {
-    this._table   = table;
-    this._params  = [];
-    this._select  = "*";
-    this._orderBy = null;
-  }
-  select(cols)  { this._select = cols; return this; }
-  eq(col, val)  { this._params.push(`${col}=eq.${encodeURIComponent(val)}`); return this; }
-  order(col, { ascending = true } = {}) { this._orderBy = `${col}.${ascending ? "asc" : "desc"}`; return this; }
-  async _fetch() {
-    const params = [...this._params];
-    if (this._orderBy) params.push(`order=${this._orderBy}`);
-    const qs  = params.length ? "&" + params.join("&") : "";
-    const url = `${SUPABASE_URL}/rest/v1/${this._table}?select=${encodeURIComponent(this._select)}${qs}`;
-    const res = await fetch(url, {
-      headers: {
-        "apikey":        SUPABASE_ANON,
-        "Authorization": `Bearer ${SUPABASE_ANON}`,
-        "Content-Type":  "application/json",
-      },
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
-    return res.json();
-  }
-  then(resolve, reject) { return this._fetch().then(resolve, reject); }
-}
 
 // ─── Estado global ─────────────────────────────────────────
 let SECTORS         = [];
@@ -65,23 +32,20 @@ function inferZona(lat) {
 }
 
 // ══════════════════════════════════════════════════════════
-//  PAGINACIÓN CORREGIDA
-//  Usa Range headers (estándar PostgREST/Supabase)
-//  en vez de query params limit/offset que se ignoran
-//  cuando se mezclan con otros parámetros en URLSearchParams.
+//  PAGINACIÓN — extraParams sin doble encodeURIComponent
+//  Los valores ya vienen en formato PostgREST: "eq.true", "asc"
 // ══════════════════════════════════════════════════════════
 async function fetchAllPages(table, selectCols, extraParams = {}) {
   const pageSize = 1000;
   let results    = [];
   let offset     = 0;
-  let totalKnown = null; // lo llenamos con Content-Range
+  let totalKnown = null;
 
   while (true) {
-    // Construir query string con parámetros extra (order, filtros, etc.)
-    // SIN incluir limit/offset aquí — van en el header Range
     const qsParts = [`select=${encodeURIComponent(selectCols)}`];
     Object.entries(extraParams).forEach(([k, v]) => {
-      qsParts.push(`${k}=${encodeURIComponent(v)}`);
+      // NO doble-encodear: v ya es valor PostgREST (ej: "eq.true", "orden_parada.asc")
+      qsParts.push(`${k}=${v}`);
     });
     const url = `${SUPABASE_URL}/rest/v1/${table}?${qsParts.join("&")}`;
 
@@ -93,7 +57,7 @@ async function fetchAllPages(table, selectCols, extraParams = {}) {
         "apikey":        SUPABASE_ANON,
         "Authorization": `Bearer ${SUPABASE_ANON}`,
         "Range-Unit":    "items",
-        "Range":         `${from}-${to}`,   // ← paginación real PostgREST
+        "Range":         `${from}-${to}`,
         "Prefer":        "count=exact",
       },
       signal: AbortSignal.timeout(20000),
@@ -102,10 +66,14 @@ async function fetchAllPages(table, selectCols, extraParams = {}) {
     if (!res.ok) {
       const body = await res.text();
       console.error(`❌ fetchAllPages error ${res.status} en "${table}":`, body);
+      // Si falla con filtros, reintentar sin ellos
+      if (Object.keys(extraParams).length > 0) {
+        console.warn(`⚠️ Reintentando "${table}" sin filtros extra…`);
+        return fetchAllPages(table, selectCols, {});
+      }
       break;
     }
 
-    // Leer total real desde Content-Range: "0-999/1441"
     if (totalKnown === null) {
       const cr = res.headers.get("Content-Range");
       if (cr) {
@@ -125,14 +93,12 @@ async function fetchAllPages(table, selectCols, extraParams = {}) {
     }
 
     results = results.concat(chunk);
-    console.log(`📦 ${table}: ${results.length}/${totalKnown ?? "?"} cargados (página ${from}-${to})`);
+    console.log(`📦 ${table}: ${results.length}/${totalKnown ?? "?"} cargados`);
 
-    // Terminar si ya tenemos todo
     if (totalKnown !== null && results.length >= totalKnown) {
       console.log(`✅ ${table}: carga completa (${results.length} registros)`);
       break;
     }
-    // O si la página vino incompleta (ya no hay más)
     if (chunk.length < pageSize) {
       console.log(`✅ ${table}: última página (chunk=${chunk.length})`);
       break;
@@ -155,7 +121,7 @@ async function loadDataFromSupabase() {
   }
 
   try {
-    // ── 1. Paradas — paginadas con Range headers ───────────
+    // ── 1. Paradas ─────────────────────────────────────────
     console.log("🔄 Cargando paradas…");
     const rawParadas = await fetchAllPages(
       "paradas",
@@ -165,7 +131,6 @@ async function loadDataFromSupabase() {
     if (!rawParadas || rawParadas.length === 0) {
       throw new Error("Sin paradas en Supabase — verifica RLS y permisos anon");
     }
-
     console.log(`✅ Paradas cargadas: ${rawParadas.length}`);
 
     SECTORS = rawParadas.map(p => ({
@@ -176,26 +141,44 @@ async function loadDataFromSupabase() {
       zona: inferZona(parseFloat(p.latitud)),
     })).filter(s => !isNaN(s.lat) && !isNaN(s.lng));
 
+    // FIX: indexar por string Y por número para evitar mismatches de tipo
     SECTOR_BY_ID = {};
-    SECTORS.forEach(s => { SECTOR_BY_ID[s.id] = s; });
-    console.log(`✅ SECTOR_BY_ID construido con ${Object.keys(SECTOR_BY_ID).length} entradas`);
+    SECTORS.forEach(s => {
+      SECTOR_BY_ID[s.id]        = s;   // "123" → sector
+      SECTOR_BY_ID[Number(s.id)] = s;  // 123   → sector
+    });
+    console.log(`✅ SECTOR_BY_ID construido con ${SECTORS.length} entradas`);
 
-    // ── 2. Rutas activas ────────────────────────────────────
-    // IMPORTANTE: no pedimos "codigo" en el select para evitar error 42703
-    // si la columna todavía no existe o tiene otro nombre.
-    // Se pide por separado con un try/catch.
+    // ── 2. Rutas — ahora con fetchAllPages en vez de SBQuery ──
     console.log("🔄 Cargando rutas…");
-    let rawRutas;
-    try {
-      // Intentar con codigo (existe en el ALTER TABLE del schema)
-      rawRutas = await SB.from("rutas")
-        .select("id_ruta,nombre,cooperativa,color,codigo,tiempo_estimado")
-        .eq("activa", true);
-    } catch (e) {
-      console.warn("⚠️ Columna 'codigo' no encontrada en rutas, reintentando sin ella:", e.message);
-      rawRutas = await SB.from("rutas")
-        .select("id_ruta,nombre,cooperativa,color,tiempo_estimado")
-        .eq("activa", true);
+
+    // Intentar primero con filtro activa=true
+    let rawRutas = await fetchAllPages(
+      "rutas",
+      "id_ruta,nombre,cooperativa,color,codigo,tiempo_estimado,activa",
+      { "activa": "eq.true" }
+    );
+
+    // Si no trajo nada con el filtro, traer todas y filtrar en JS
+    if (!rawRutas || rawRutas.length === 0) {
+      console.warn("⚠️ Sin rutas con activa=eq.true, cargando todas y filtrando en JS…");
+      rawRutas = await fetchAllPages(
+        "rutas",
+        "id_ruta,nombre,cooperativa,color,codigo,tiempo_estimado,activa"
+      );
+      rawRutas = rawRutas.filter(r => r.activa !== false);
+      console.log(`⚠️ Rutas tras filtrar en JS: ${rawRutas.length}`);
+    }
+
+    // Si todavía no hay rutas, intentar sin columna codigo (por si no existe)
+    if (!rawRutas || rawRutas.length === 0) {
+      console.warn("⚠️ Reintentando rutas sin columna 'codigo'…");
+      rawRutas = await fetchAllPages(
+        "rutas",
+        "id_ruta,nombre,cooperativa,color,tiempo_estimado,activa"
+      );
+      rawRutas = rawRutas.filter(r => r.activa !== false);
+      console.log(`⚠️ Rutas (sin codigo) tras filtrar en JS: ${rawRutas.length}`);
     }
 
     if (!rawRutas || rawRutas.length === 0) {
@@ -203,12 +186,12 @@ async function loadDataFromSupabase() {
     }
     console.log(`✅ Rutas cargadas desde BD: ${rawRutas.length}`);
 
-    // ── 3. Relación ruta↔parada — paginada ─────────────────
+    // ── 3. Relación ruta↔parada ────────────────────────────
     console.log("🔄 Cargando ruta_paradas…");
     const rawRP = await fetchAllPages(
       "ruta_paradas",
       "id_ruta,id_parada,orden_parada",
-      { order: "orden_parada.asc" }
+      { "order": "orden_parada.asc" }
     );
     console.log(`✅ Ruta-paradas cargadas: ${rawRP.length}`);
 
@@ -223,19 +206,21 @@ async function loadDataFromSupabase() {
       });
     });
 
-    // Diagnóstico de cobertura
+    // Diagnóstico
     let paradasNoEncontradas = 0;
     let paradasEncontradas   = 0;
     let rutasDescartadas     = 0;
 
     ROUTES = rawRutas.map(r => {
-      const grupo  = paradasPorRuta[String(r.id_ruta)] || [];
+      const grupo   = paradasPorRuta[String(r.id_ruta)] || [];
       const paradas = grupo
         .sort((a, b) => a.orden - b.orden)
         .map(p => {
-          if (SECTOR_BY_ID[p.id]) {
+          // FIX: buscar por string Y por número
+          const found = SECTOR_BY_ID[p.id] || SECTOR_BY_ID[Number(p.id)];
+          if (found) {
             paradasEncontradas++;
-            return p.id;
+            return found.id; // siempre retornar el id como string canónico
           } else {
             paradasNoEncontradas++;
             return null;
@@ -248,7 +233,6 @@ async function loadDataFromSupabase() {
         return null;
       }
 
-      // Usar codigo si existe, sino nombre, sino id como string
       const linea = (r.codigo || r.nombre || String(r.id_ruta)).trim();
 
       return {
@@ -265,27 +249,29 @@ async function loadDataFromSupabase() {
 
     console.log(`✅ Rutas construidas: ${ROUTES.length}`);
     if (rutasDescartadas > 0)
-      console.warn(`⚠️ ${rutasDescartadas} rutas descartadas por tener <2 paradas válidas`);
+      console.warn(`⚠️ ${rutasDescartadas} rutas descartadas por <2 paradas válidas`);
     if (paradasNoEncontradas > 0)
-      console.warn(`⚠️ ${paradasNoEncontradas} refs en ruta_paradas sin match en SECTOR_BY_ID (${paradasEncontradas} válidas)`);
+      console.warn(`⚠️ ${paradasNoEncontradas} paradas en ruta_paradas sin match en SECTOR_BY_ID`);
 
-    // Diagnóstico clave: si hay muchas paradas no encontradas, avisar
     const pctMissing = rawRP.length > 0
       ? Math.round(paradasNoEncontradas / rawRP.length * 100)
       : 0;
     if (pctMissing > 10) {
       console.error(
-        `🚨 ${pctMissing}% de ruta_paradas apuntan a paradas no cargadas. ` +
-        `Verifica que se cargaron TODAS las paradas (BD tiene ${rawParadas.length}).`
+        `🚨 ${pctMissing}% de ruta_paradas sin match. ` +
+        `BD tiene ${rawParadas.length} paradas. Muestra de IDs en ruta_paradas:`,
+        rawRP.slice(0, 3).map(r => r.id_parada),
+        `Muestra de IDs en SECTOR_BY_ID:`,
+        Object.keys(SECTOR_BY_ID).slice(0, 3)
       );
     }
 
-    // ── 4. Coordenadas de ruta — paginadas ─────────────────
+    // ── 4. Coordenadas de ruta ─────────────────────────────
     console.log("🔄 Cargando coordenadas_ruta…");
     const rawCoords = await fetchAllPages(
       "coordenadas_ruta",
       "id_ruta,latitud,longitud,orden_coordenada",
-      { order: "orden_coordenada.asc" }
+      { "order": "orden_coordenada.asc" }
     );
     console.log(`✅ Coordenadas GPS cargadas: ${rawCoords.length}`);
 
@@ -314,7 +300,7 @@ async function loadDataFromSupabase() {
       });
       console.log(`✅ ${rutasConPath} rutas con trayectoria GPS real`);
     } else {
-      console.warn("⚠️ coordenadas_ruta vacía — los mapas usarán líneas rectas entre paradas");
+      console.warn("⚠️ coordenadas_ruta vacía — mapas con líneas rectas entre paradas");
     }
 
     buildPopularData();
@@ -326,7 +312,7 @@ async function loadDataFromSupabase() {
       `   Con GPS : ${ROUTES.filter(r => r.path).length}`
     );
 
-    // Verificación rápida del motor de búsqueda
+    // Test del motor de búsqueda
     if (ROUTES.length > 0) {
       const r0 = ROUTES[0];
       const testO = r0.stops[0];
@@ -334,9 +320,9 @@ async function loadDataFromSupabase() {
       const testResults = findRoutes(testO, testD);
       console.log(`🔍 Test findRoutes(${testO} → ${testD}): ${testResults.length} resultados`);
       if (testResults.length === 0) {
-        console.error("🚨 findRoutes retorna 0 en ruta conocida — revisa los IDs en stops vs SECTOR_BY_ID");
-        console.log("   Primeros stops de r0:", r0.stops.slice(0, 5));
-        console.log("   Primeras keys de SECTOR_BY_ID:", Object.keys(SECTOR_BY_ID).slice(0, 5));
+        console.error("🚨 findRoutes retorna 0 en ruta conocida");
+        console.log("   Stops de r0:", r0.stops.slice(0, 5));
+        console.log("   Keys SECTOR_BY_ID:", Object.keys(SECTOR_BY_ID).slice(0, 5));
       }
     }
 
@@ -349,7 +335,7 @@ async function loadDataFromSupabase() {
   }
 }
 
-// ─── Color aleatorio pero consistente por id ──────────────
+// ─── Color consistente por id ──────────────────────────────
 function randomRouteColor(id) {
   const palette = ["#FF6B2B","#2196F3","#4CAF50","#9C27B0","#F44336","#00BCD4","#FF9800","#607D8B","#E91E63","#3F51B5"];
   return palette[id % palette.length];
@@ -428,7 +414,10 @@ function loadFallbackData() {
   ];
 
   SECTOR_BY_ID = {};
-  SECTORS.forEach(s => { SECTOR_BY_ID[s.id] = s; });
+  SECTORS.forEach(s => {
+    SECTOR_BY_ID[s.id]        = s;
+    SECTOR_BY_ID[Number(s.id)] = s;
+  });
 
   ROUTES = [
     { id:"r1",  linea:"113",    empresa:"CATAR",        color:"#FF6B2B", stops:["carc","comu","ofelia","coton","carol","uce","marin"] },
@@ -464,7 +453,6 @@ function loadFallbackData() {
 function findRoutes(originId, destId) {
   if (!originId || !destId || originId === destId) return [];
 
-  // Normalizar a string por si acaso llegan como número
   originId = String(originId);
   destId   = String(destId);
 
@@ -567,17 +555,12 @@ function findRoutes(originId, destId) {
     });
   });
 
-  // ── Ordenar: directas primero, luego por tiempo ───────
   results.sort((a, b) => {
     if (a.type !== b.type) return a.type === "direct" ? -1 : 1;
     return a.estimatedMin - b.estimatedMin;
   });
 
   return results.slice(0, 15);
-}
-
-function estimateTime(stops) {
-  return Math.max(5, stops * 3 + 2);
 }
 
 // ─── Haversine ────────────────────────────────────────────
