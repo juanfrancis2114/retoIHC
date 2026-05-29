@@ -1,28 +1,28 @@
 /* ══════════════════════════════════════
-   BusQuito – maps.js  (v6 – coordenadas JSONB)
+   BusQuito – maps.js  (v7 – flujo por coordenadas)
    ══════════════════════════════════════ */
 
 const ORS_KEY  = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjQwNjZkYWNkOGNhNzQzMzRhNzU5MjcyOWM0OGNhNzIzIiwiaCI6Im11cm11cjY0In0=";
 const ORS_BASE = "https://api.openrouteservice.org/v2/directions/foot-walking";
 
 const QUITO_CENTER = [-0.2201, -78.5123];
-const QUITO_ZOOM   = 12;
+const QUITO_ZOOM   = 13;
 
 // ── Geocodificación inversa ────────────────────────────────
 async function reverseGeocode(lat, lng) {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&accept-language=es`,
-      { headers: { "User-Agent": "BusQuito/2.0" } }
+      { headers: { "User-Agent": "BusQuito/3.0" } }
     );
     if (!res.ok) return null;
     const data = await res.json();
-    const a    = data.address || {};
+    const a = data.address || {};
     const street = a.road || a.pedestrian || a.path || "";
     const number = a.house_number ? ` ${a.house_number}` : "";
     const hood   = a.suburb || a.neighbourhood || a.quarter || a.city_district || "";
     if (street) return `${street}${number}${hood ? ", " + hood : ""}`;
-    return data.display_name?.split(",").slice(0,2).join(",").trim() || null;
+    return data.display_name?.split(",").slice(0, 2).join(",").trim() || null;
   } catch { return null; }
 }
 
@@ -34,75 +34,6 @@ function getCurrentPosition() {
       timeout: 8000, maximumAge: 30000, enableHighAccuracy: true,
     });
   });
-}
-
-// ── Botones "Usar mi ubicación" ────────────────────────────
-function initGeolocButtons() {
-  const fieldOrigin = document.getElementById("field-origin");
-  const fieldDest   = document.getElementById("field-dest");
-  if (!fieldOrigin || !fieldDest) return;
-
-  function makeBtn(id, ariaLabel, field) {
-    if (document.getElementById(id)) return;
-    const btn = document.createElement("button");
-    btn.id = id;
-    btn.className = "geoloc-btn";
-    btn.setAttribute("aria-label", ariaLabel);
-    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 20 20" fill="none">
-      <circle cx="10" cy="10" r="3" fill="currentColor"/>
-      <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.8"/>
-      <path d="M10 1v3M10 16v3M1 10h3M16 10h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-    </svg> Mi ubicación`;
-    const wrap = (field === "origin" ? fieldOrigin : fieldDest).querySelector(".sf-input-wrap");
-    if (wrap) wrap.after(btn);
-    btn.addEventListener("click", () => geolocateField(field));
-  }
-
-  makeBtn("btn-geolocate-origin", "Usar mi ubicación como origen", "origin");
-  makeBtn("btn-geolocate-dest",   "Usar mi ubicación como destino", "dest");
-}
-
-async function geolocateField(field) {
-  const btnId = field === "origin" ? "btn-geolocate-origin" : "btn-geolocate-dest";
-  const inp   = document.getElementById(field === "origin" ? "input-origin" : "input-dest");
-  const btn   = document.getElementById(btnId);
-  if (!btn || !inp) return;
-
-  btn.disabled = true;
-  const origHtml = btn.innerHTML;
-  btn.innerHTML = "⏳ Buscando…";
-  showToast("📍 Obteniendo tu ubicación…");
-
-  try {
-    const pos  = await getCurrentPosition();
-    const lat  = pos.coords.latitude;
-    const lng  = pos.coords.longitude;
-    const addr = await reverseGeocode(lat, lng);
-    const nearest = findNearestSector(lat, lng);
-
-    inp.value = addr || nearest?.name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-    inp.parentElement.querySelector(".sf-clear").classList.remove("hidden");
-
-    if (field === "origin") {
-      APP.origin       = nearest?.id || null;
-      APP.originLatLng = [lat, lng];
-    } else {
-      APP.dest       = nearest?.id || null;
-      APP.destLatLng = [lat, lng];
-    }
-
-    checkSearchReady();
-    const dist = nearest ? Math.round(haversineM(lat, lng, nearest.lat, nearest.lng)) : null;
-    showToast(dist != null
-      ? `📍 ${inp.value} · Paradero: ${nearest.name} (${dist} m)`
-      : `📍 ${inp.value}`
-    );
-  } catch {
-    showToast("❌ No se pudo obtener tu ubicación. Permite el acceso.");
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = origHtml;
-  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -123,7 +54,11 @@ function createMap(containerId, options = {}) {
     ...options,
   }).setView(QUITO_CENTER, QUITO_ZOOM);
 
-  addTiles(m);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "© <a href='https://openstreetmap.org'>OSM</a>",
+    maxZoom: 19,
+  }).addTo(m);
+
   APP.maps[containerId] = m;
   return m;
 }
@@ -134,9 +69,7 @@ function safeFitBounds(map, points, padding = [40, 40]) {
   if (points.length === 1) { map.setView(points[0], 15); return; }
   try {
     const bounds = L.latLngBounds(points);
-    if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding, maxZoom: 16, animate: false });
-    }
+    if (bounds.isValid()) map.fitBounds(bounds, { padding, maxZoom: 16, animate: false });
   } catch(e) {
     const avgLat = points.reduce((s, p) => s + p[0], 0) / points.length;
     const avgLng = points.reduce((s, p) => s + p[1], 0) / points.length;
@@ -145,21 +78,14 @@ function safeFitBounds(map, points, padding = [40, 40]) {
 }
 
 // ══════════════════════════════════════════════════════════
-//  OBTENER COORDENADAS DEL PATH PARA EL MAPA
-//  Usa las coordenadas JSONB de la ruta si existen,
-//  si no, conecta paradas por línea recta
+//  COORDENADAS DE PATH PARA EL MAPA
 // ══════════════════════════════════════════════════════════
 function getPathCoords(leg) {
   const route = leg.route;
-
-  // Intentar usar path real de coordenadas JSONB
   if (Array.isArray(route.path) && route.path.length >= 2) {
-    // path ya viene en formato [lat, lng] desde data.js
     const coords = trimToLeg(route.path, leg);
     if (coords.length >= 2) return coords;
   }
-
-  // Fallback: línea recta entre paradas
   return leg.stops
     .map(id => SECTOR_BY_ID[id])
     .filter(Boolean)
@@ -184,7 +110,8 @@ function trimToLeg(path, leg) {
 }
 
 // ══════════════════════════════════════════════════════════
-//  1. MAPA DE RESULTADOS
+//  1. MAPA DE RESULTADOS  
+//     Muestra todas las rutas encontradas, con origen y destino
 // ══════════════════════════════════════════════════════════
 function initResultsMap() {
   if (APP.maps["results-map"]) {
@@ -198,11 +125,8 @@ function _buildResultsMap() {
   const m = createMap("results-map");
   if (!m) return;
 
-  const o   = SECTOR_BY_ID[APP.origin];
-  const d   = SECTOR_BY_ID[APP.dest];
-  const oLL = APP.originLatLng || (o ? [o.lat, o.lng] : null);
-  const dLL = APP.destLatLng   || (d ? [d.lat, d.lng] : null);
-
+  const oLL = APP.originLatLng ? [APP.originLatLng.lat, APP.originLatLng.lng] : null;
+  const dLL = APP.destLatLng   ? [APP.destLatLng.lat,   APP.destLatLng.lng]   : null;
   const allPoints = [];
 
   APP.results.forEach((result, idx) => {
@@ -216,14 +140,21 @@ function _buildResultsMap() {
           opacity: isFirst ? 0.9 : 0.35,
           lineJoin: "round",
           lineCap:  "round",
-        }).addTo(m).bindTooltip(`🚌 Línea ${leg.route.linea} – ${leg.route.empresa}`, { sticky: true });
+        }).addTo(m)
+          .bindTooltip(`🚌 Línea ${leg.route.linea} – ${leg.route.empresa}`, { sticky: true });
         allPoints.push(...coords);
       }
     });
   });
 
-  if (oLL) { addPinMarker(m, oLL, o?.name || "Origen",  "#27AE60"); allPoints.push(oLL); }
-  if (dLL) { addPinMarker(m, dLL, d?.name || "Destino", "#FF6B2B"); allPoints.push(dLL); }
+  if (oLL) {
+    addPinMarker(m, oLL, APP.originLabel || "Origen", "#27AE60");
+    allPoints.push(oLL);
+  }
+  if (dLL) {
+    addPinMarker(m, dLL, APP.destLabel || "Destino", "#FF6B2B");
+    allPoints.push(dLL);
+  }
 
   if (allPoints.length === 0) { m.setView(QUITO_CENTER, QUITO_ZOOM); return; }
   safeFitBounds(m, allPoints, [40, 40]);
@@ -231,6 +162,7 @@ function _buildResultsMap() {
 
 // ══════════════════════════════════════════════════════════
 //  2. MAPA DE DETALLE
+//     Muestra la ruta seleccionada con caminatas
 // ══════════════════════════════════════════════════════════
 async function initDetailMap(result) {
   if (APP.maps["detail-map"]) {
@@ -244,31 +176,31 @@ async function initDetailMap(result) {
   const m = createMap("detail-map");
   if (!m) return;
 
-  const oLL = APP.originLatLng || coordsOf(APP.origin);
-  const dLL = APP.destLatLng   || coordsOf(APP.dest);
+  const oLL = APP.originLatLng ? [APP.originLatLng.lat, APP.originLatLng.lng] : null;
+  const dLL = APP.destLatLng   ? [APP.destLatLng.lat,   APP.destLatLng.lng]   : null;
 
-  const firstLeg  = result.legs[0];
-  const lastLeg   = result.legs[result.legs.length - 1];
+  const firstLeg = result.legs[0];
+  const lastLeg  = result.legs[result.legs.length - 1];
   const firstStop = SECTOR_BY_ID[firstLeg.stops[0]];
   const lastStop  = SECTOR_BY_ID[lastLeg.stops[lastLeg.stops.length - 1]];
 
   const allPoints = [];
   const navSteps  = [];
 
-  // Caminata inicio
+  // Caminata al paradero de origen
   if (oLL && firstStop) {
     const walk = await getWalkPath(oLL, [firstStop.lat, firstStop.lng]);
     allPoints.push(...walk.coords);
     if (walk.coords.length > 1) {
       L.polyline(walk.coords, {
-        color: "#27AE60", weight: 4, opacity: 0.9,
+        color: "#27AE60", weight: 4, opacity: 0.85,
         dashArray: "10 7", lineJoin: "round",
       }).addTo(m).bindTooltip(`🚶 Caminar al paradero (${walk.distText})`, { sticky: true });
     }
     navSteps.push({
       icon: "🚶", color: "#27AE60",
-      title: `Camina ${walk.distText} hasta el paradero`,
-      sub: `Paradero: <strong>${firstStop.name}</strong>`,
+      title: `Camina ${walk.distText} al paradero`,
+      sub: `<strong>${firstStop.name}</strong>`,
       time: walk.timeText,
     });
   }
@@ -285,72 +217,68 @@ async function initDetailMap(result) {
     if (coords.length > 1) {
       L.polyline(coords, {
         color: leg.route.color || "#2A5F9E",
-        weight: 5, opacity: 0.92,
-        lineJoin: "round", lineCap: "round",
+        weight: 6, opacity: 0.92, lineJoin: "round", lineCap: "round",
       }).addTo(m).bindTooltip(
         `🚌 Línea ${leg.route.linea} – ${leg.route.empresa}<br>${fromStop?.name || "—"} → ${toStop?.name || "—"}`,
         { sticky: true }
       );
     }
 
-    // Dots en paradas
     leg.stops.forEach((id, i) => {
       const s = SECTOR_BY_ID[id];
       if (!s) return;
       const isEndpoint = i === 0 || i === leg.stops.length - 1;
       L.circleMarker([s.lat, s.lng], {
-        radius:      isEndpoint ? 7 : 4,
-        color:       "#fff",
-        weight:      isEndpoint ? 2.5 : 1.5,
-        fillColor:   leg.route.color || "#2A5F9E",
+        radius: isEndpoint ? 7 : 4,
+        color: "#fff", weight: isEndpoint ? 2.5 : 1.5,
+        fillColor: leg.route.color || "#2A5F9E",
         fillOpacity: 1,
       }).addTo(m).bindTooltip(s.name, { direction: "top" });
     });
 
     navSteps.push({
       icon: "🚌", color: leg.route.color || "#2A5F9E",
-      title: `Toma la línea <span style="color:${leg.route.color};font-weight:800">${leg.route.linea}</span> – ${leg.route.empresa}`,
+      title: `Línea <span style="color:${leg.route.color};font-weight:800">${leg.route.linea}</span> – ${leg.route.empresa}`,
       sub: `${fromStop?.name || "—"} → ${toStop?.name || "—"} · ${nParadas} parada${nParadas !== 1 ? "s" : ""}`,
-      time: `~${Math.max(3, nParadas * 3)} min`,
+      time: `~${Math.max(3, nParadas * 2)} min`,
     });
 
     if (li < result.legs.length - 1 && toStop) {
       addTransferMarker(m, toStop);
       navSteps.push({
         icon: "🔄", color: "#F59E0B",
-        title: `Bájate en <strong>${toStop.name}</strong>`,
-        sub: `Transbordo: sube a línea <strong>${result.legs[li+1].route.linea}</strong>`,
+        title: `Transbordo en <strong>${toStop.name}</strong>`,
+        sub: `Sube a línea <strong>${result.legs[li+1].route.linea}</strong>`,
         time: "~3 min",
       });
     }
   });
 
-  // Caminata final
+  // Caminata final al destino
   if (dLL && lastStop) {
     const walk2 = await getWalkPath([lastStop.lat, lastStop.lng], dLL);
     allPoints.push(...walk2.coords);
     if (walk2.coords.length > 1) {
       L.polyline(walk2.coords, {
-        color: "#FF6B2B", weight: 4, opacity: 0.9,
+        color: "#FF6B2B", weight: 4, opacity: 0.85,
         dashArray: "10 7", lineJoin: "round",
       }).addTo(m).bindTooltip(`🚶 Caminar al destino (${walk2.distText})`, { sticky: true });
     }
     navSteps.push({
       icon: "🏁", color: "#FF6B2B",
-      title: `Camina ${walk2.distText} hasta tu destino`,
-      sub: SECTOR_BY_ID[APP.dest]?.name || "Tu destino",
+      title: `Camina ${walk2.distText} a tu destino`,
+      sub: APP.destLabel || "Tu destino",
       time: walk2.timeText,
     });
   }
 
-  if (oLL) { addPinMarker(m, oLL, SECTOR_BY_ID[APP.origin]?.name || "Inicio", "#27AE60"); allPoints.push(oLL); }
-  if (dLL) { addPinMarker(m, dLL, SECTOR_BY_ID[APP.dest]?.name   || "Destino", "#FF6B2B"); allPoints.push(dLL); }
+  if (oLL) { addPinMarker(m, oLL, APP.originLabel || "Inicio", "#27AE60"); allPoints.push(oLL); }
+  if (dLL) { addPinMarker(m, dLL, APP.destLabel   || "Destino", "#FF6B2B"); allPoints.push(dLL); }
 
   safeFitBounds(m, allPoints, [50, 50]);
   renderNavPanel(navSteps, result);
 }
 
-// ── Reorganizar layout del detalle ────────────────────────
 function reorganizeDetailLayout() {
   const screenDetail = document.getElementById("screen-detail");
   if (!screenDetail || screenDetail.dataset.layoutDone) return;
@@ -388,19 +316,14 @@ function reorganizeDetailLayout() {
   sidebar.replaceWith(mapBlock);
 }
 
-// ── Panel de navegación ───────────────────────────────────
 function renderNavPanel(steps, result) {
   const panel = document.getElementById("nav-panel");
   if (!panel) return;
-
-  const totalWalk = steps.filter(s => s.icon === "🚶" || s.icon === "🏁").length;
-  const totalBus  = steps.filter(s => s.icon === "🚌").length;
-
   panel.innerHTML = `
     <div class="np-header">
       <div>
-        <div class="np-title">🗺 Navegación paso a paso</div>
-        <div class="np-meta">~${result.estimatedMin} min · ${result.totalStops} paradas · ${totalBus} línea${totalBus!==1?"s":""} · ${totalWalk} tramo${totalWalk!==1?"s":""} a pie</div>
+        <div class="np-title">🗺 Paso a paso</div>
+        <div class="np-meta">~${result.estimatedMin} min · ${result.totalStops} paradas · ${result.legs.length} línea${result.legs.length !== 1 ? "s" : ""}</div>
       </div>
       <div class="np-badge ${result.type}">${result.type === "direct" ? "🟢 Directa" : "🔵 Transbordo"}</div>
     </div>
@@ -420,268 +343,50 @@ function renderNavPanel(steps, result) {
 }
 
 // ══════════════════════════════════════════════════════════
-//  3. MAP PICKER
-// ══════════════════════════════════════════════════════════
-const pickerState = {
-  mode: null, selectedId: null, freeLatLng: null,
-  map: null, markers: [], freeMarker: null, _nearestLine: null, _freeAddress: null,
-};
-
-function initMapPicker() {
-  initGeolocButtons();
-
-  document.querySelectorAll(".map-pick-btn").forEach(btn => {
-    btn.addEventListener("click", () => openMapPicker(btn.dataset.mode));
-  });
-  document.getElementById("map-modal-close").addEventListener("click", closeMapPicker);
-  document.getElementById("map-confirm-btn").addEventListener("click", confirmMapSelection);
-  document.getElementById("map-picker-modal").addEventListener("click", e => {
-    if (e.target === document.getElementById("map-picker-modal")) closeMapPicker();
-  });
-  document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && document.getElementById("map-picker-modal").classList.contains("is-open"))
-      closeMapPicker();
-  });
-}
-
-function openMapPicker(mode) {
-  pickerState.mode       = mode;
-  pickerState.freeLatLng = null;
-  pickerState._freeAddress = null;
-  pickerState.selectedId = mode === "origin" ? APP.origin : APP.dest;
-
-  const isOrigin = mode === "origin";
-  document.getElementById("map-modal-indicator").className = "map-modal-indicator" + (isOrigin ? "" : " dest");
-  document.getElementById("map-modal-title").textContent = isOrigin
-    ? "Selecciona tu punto de origen"
-    : "Selecciona tu destino";
-  document.getElementById("map-modal-hint").textContent = "Toca una parada o haz clic en cualquier punto del mapa";
-
-  updatePickerDisplay(pickerState.selectedId, null, null);
-  document.getElementById("map-picker-modal").classList.add("is-open");
-  document.body.style.overflow = "hidden";
-
-  if (pickerState.map) { try { pickerState.map.remove(); } catch(e) {} pickerState.map = null; }
-  pickerState.markers = []; pickerState.freeMarker = null;
-
-  setTimeout(() => {
-    const map = L.map("picker-map", { zoomControl: true }).setView(QUITO_CENTER, 13);
-    pickerState.map = map;
-    addTiles(map);
-    map.invalidateSize();
-
-    const geoCtrl = L.control({ position: "topright" });
-    geoCtrl.onAdd = () => {
-      const div = L.DomUtil.create("div");
-      div.innerHTML = `<button class="picker-geoloc-btn" title="Mi ubicación">📍 Mi ubicación</button>`;
-      L.DomEvent.disableClickPropagation(div);
-      div.querySelector("button").addEventListener("click", async () => {
-        try {
-          div.querySelector("button").textContent = "⏳…";
-          const pos = await getCurrentPosition();
-          const { latitude: lat, longitude: lng } = pos.coords;
-          map.setView([lat, lng], 16);
-          selectFreePoint(lat, lng, map);
-        } catch {
-          showToast("❌ No se pudo obtener ubicación.");
-        } finally {
-          div.querySelector("button").textContent = "📍 Mi ubicación";
-        }
-      });
-      return div;
-    };
-    geoCtrl.addTo(map);
-
-    // Solo mostrar paradas con nombre real (no sintéticas) en el picker
-    const paradasVisibles = SECTORS.filter(s =>
-      s.name !== "Parada" && s.name !== "Parada sintética" && s.name !== "Parada oficial"
-    );
-
-    paradasVisibles.forEach(sector => {
-      const isSel = sector.id === pickerState.selectedId;
-      const icon  = L.divIcon({
-        className: "",
-        html: `<div class="picker-marker zona-${sector.zona}${isSel ? (isOrigin ? " selected-origin" : " selected-dest") : ""}"
-                    tabindex="0" role="button" aria-label="Parada: ${sector.name}"></div>`,
-        iconSize: [14, 14], iconAnchor: [7, 7],
-      });
-      const marker = L.marker([sector.lat, sector.lng], { icon })
-        .addTo(map)
-        .bindTooltip(`<strong>${sector.name}</strong><br><small>Zona ${sector.zona}</small>`, {
-          direction: "top", offset: [0, -10], className: "picker-tooltip",
-        });
-      marker.on("click", e => { L.DomEvent.stopPropagation(e); selectPickerStop(sector, map); });
-      pickerState.markers.push({ marker, sector });
-    });
-
-    map.on("click", e => selectFreePoint(e.latlng.lat, e.latlng.lng, map));
-
-    if (pickerState.selectedId) {
-      const s = SECTOR_BY_ID[pickerState.selectedId];
-      if (s) map.setView([s.lat, s.lng], 14);
-    }
-  }, 100);
-}
-
-function selectPickerStop(sector, map) {
-  pickerState.selectedId   = sector.id;
-  pickerState.freeLatLng   = null;
-  pickerState._freeAddress = null;
-  if (pickerState.freeMarker)   { pickerState.freeMarker.remove();   pickerState.freeMarker   = null; }
-  if (pickerState._nearestLine) { pickerState._nearestLine.remove(); pickerState._nearestLine = null; }
-
-  const isOrigin = pickerState.mode === "origin";
-  pickerState.markers.forEach(({ marker, sector: s }) => {
-    const el = marker.getElement()?.querySelector(".picker-marker");
-    if (!el) return;
-    el.classList.remove("selected-origin", "selected-dest");
-    if (s.id === sector.id) el.classList.add(isOrigin ? "selected-origin" : "selected-dest");
-  });
-  updatePickerDisplay(sector.id, null, null);
-  showToast(isOrigin ? `Origen: ${sector.name}` : `Destino: ${sector.name}`);
-}
-
-function selectFreePoint(lat, lng, map) {
-  pickerState.freeLatLng   = [lat, lng];
-  pickerState._freeAddress = null;
-  const nearest  = findNearestSector(lat, lng);
-  pickerState.selectedId = nearest?.id || null;
-  const isOrigin = pickerState.mode === "origin";
-
-  pickerState.markers.forEach(({ marker }) => {
-    const el = marker.getElement()?.querySelector(".picker-marker");
-    if (el) el.classList.remove("selected-origin", "selected-dest");
-  });
-  if (nearest) {
-    pickerState.markers.find(m => m.sector.id === nearest.id)
-      ?.marker.getElement()?.querySelector(".picker-marker")
-      ?.classList.add(isOrigin ? "selected-origin" : "selected-dest");
-  }
-
-  if (pickerState.freeMarker)   { pickerState.freeMarker.remove();   pickerState.freeMarker   = null; }
-  if (pickerState._nearestLine) { pickerState._nearestLine.remove(); pickerState._nearestLine = null; }
-
-  const freeIcon = L.divIcon({
-    className: "",
-    html: `<div class="free-pin ${isOrigin ? "free-pin-origin" : "free-pin-dest"}"><div class="free-pin-dot"></div></div>`,
-    iconSize: [24, 32], iconAnchor: [12, 32],
-  });
-  pickerState.freeMarker = L.marker([lat, lng], { icon: freeIcon }).addTo(map)
-    .bindTooltip(isOrigin ? "📍 Tu origen" : "🏁 Tu destino", { direction: "top", offset: [0, -34] });
-
-  if (nearest) {
-    pickerState._nearestLine = L.polyline(
-      [[lat, lng], [nearest.lat, nearest.lng]],
-      { color: "#FF6B2B", weight: 2, opacity: 0.5, dashArray: "5 4" }
-    ).addTo(map);
-  }
-
-  updatePickerDisplay(nearest?.id || null, [lat, lng], null);
-  const dist = nearest ? Math.round(haversineM(lat, lng, nearest.lat, nearest.lng)) : null;
-  showToast(nearest ? `Paradero más cercano: ${nearest.name} (${dist} m)` : "Punto seleccionado");
-
-  reverseGeocode(lat, lng).then(addr => {
-    pickerState._freeAddress = addr;
-    updatePickerDisplay(nearest?.id || null, [lat, lng], addr);
-  });
-}
-
-function updatePickerDisplay(sectorId, freeLatLng, address) {
-  const display    = document.getElementById("map-selected-display");
-  const confirmBtn = document.getElementById("map-confirm-btn");
-  const isOrigin   = pickerState.mode === "origin";
-
-  if (freeLatLng && sectorId) {
-    const s    = SECTOR_BY_ID[sectorId];
-    const dist = haversineM(freeLatLng[0], freeLatLng[1], s.lat, s.lng);
-    const addrLine = address
-      ? `<div style="font-size:.82rem;font-weight:700;color:var(--blue)">${address}</div>`
-      : `<div style="font-size:.74rem;color:var(--gray-text)">${freeLatLng[0].toFixed(5)}, ${freeLatLng[1].toFixed(5)}</div>`;
-    display.innerHTML = `
-      <div class="msd-selected" style="flex-direction:column;align-items:flex-start;gap:4px">
-        <div style="display:flex;align-items:center;gap:8px">
-          <span class="msd-dot" style="background:${isOrigin ? "var(--green)" : "var(--orange)"}"></span>
-          ${addrLine}
-        </div>
-        <div style="font-size:.74rem;color:var(--gray-text);padding-left:18px">
-          🚏 Paradero: <strong>${s.name}</strong> · ${Math.round(dist)} m a pie
-        </div>
-      </div>`;
-    confirmBtn.classList.remove("hidden");
-  } else if (sectorId) {
-    const s = SECTOR_BY_ID[sectorId];
-    display.innerHTML = `
-      <div class="msd-selected">
-        <span class="msd-dot" style="background:${isOrigin ? "var(--green)" : "var(--orange)"}"></span>
-        <strong>${s?.name || sectorId}</strong>
-        <span style="font-size:.72rem;color:var(--gray-text)">(zona ${s?.zona})</span>
-      </div>`;
-    confirmBtn.classList.remove("hidden");
-  } else {
-    display.innerHTML = `<span class="msd-placeholder">Toca una parada o un punto del mapa</span>`;
-    confirmBtn.classList.add("hidden");
-  }
-}
-
-async function confirmMapSelection() {
-  const mode     = pickerState.mode;
-  const sectorId = pickerState.selectedId;
-  const freeLL   = pickerState.freeLatLng;
-  if (!sectorId && !freeLL) return;
-
-  const s   = SECTOR_BY_ID[sectorId];
-  const inp = document.getElementById(mode === "origin" ? "input-origin" : "input-dest");
-
-  let label;
-  if (freeLL) {
-    label = pickerState._freeAddress
-      || await reverseGeocode(freeLL[0], freeLL[1])
-      || s?.name
-      || `${freeLL[0].toFixed(4)}, ${freeLL[1].toFixed(4)}`;
-  } else {
-    label = s?.name || "";
-  }
-
-  inp.value = label;
-  inp.parentElement.querySelector(".sf-clear").classList.remove("hidden");
-
-  if (mode === "origin") {
-    APP.origin       = sectorId || null;
-    APP.originLatLng = freeLL || (s ? [s.lat, s.lng] : null);
-  } else {
-    APP.dest       = sectorId || null;
-    APP.destLatLng = freeLL || (s ? [s.lat, s.lng] : null);
-  }
-
-  checkSearchReady();
-  closeMapPicker();
-  if (APP.origin && APP.dest)
-    setTimeout(() => showToast("✅ Listo. Toca 'Buscar rutas'."), 300);
-}
-
-function closeMapPicker() {
-  document.getElementById("map-picker-modal").classList.remove("is-open");
-  document.body.style.overflow = "";
-  if (pickerState.map) { try { pickerState.map.remove(); } catch(e) {} pickerState.map = null; }
-  if (pickerState._nearestLine) { try { pickerState._nearestLine.remove(); } catch(e) {} pickerState._nearestLine = null; }
-  pickerState.markers      = [];
-  pickerState.freeMarker   = null;
-  pickerState._freeAddress = null;
-}
-
-// ══════════════════════════════════════════════════════════
 //  HELPERS DE MAPA
 // ══════════════════════════════════════════════════════════
-function addTiles(map) {
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "© <a href='https://openstreetmap.org'>OSM</a> contributors",
-    maxZoom: 19,
-  }).addTo(map);
+function addPinMarker(map, latLng, label, color) {
+  const letter = color === "#27AE60" ? "A" : "B";
+  const icon = L.divIcon({
+    className: "",
+    html: `<div style="position:relative;width:28px;height:38px">
+      <div style="width:28px;height:28px;background:${color};border:3px solid white;
+           border-radius:50%;box-shadow:0 3px 12px rgba(0,0,0,.4);display:flex;
+           align-items:center;justify-content:center;color:white;font-size:13px;font-weight:800">
+        ${letter}
+      </div>
+      <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+           width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;
+           border-top:12px solid ${color}"></div>
+    </div>`,
+    iconSize: [28, 38], iconAnchor: [14, 38],
+  });
+  L.marker(latLng, { icon, zIndexOffset: 1000 }).addTo(map)
+    .bindTooltip(`<strong>${label}</strong>`, { direction: "top", offset: [0, -40] });
 }
 
-function coordsOf(id) {
-  const s = SECTOR_BY_ID[id];
-  return s ? [s.lat, s.lng] : null;
+function addTransferMarker(map, sector) {
+  const icon = L.divIcon({
+    className: "",
+    html: `<div style="background:#F59E0B;color:white;font-size:10px;font-weight:800;
+                padding:3px 8px;border-radius:6px;border:2px solid white;
+                box-shadow:0 2px 8px rgba(0,0,0,.3);white-space:nowrap">🔄 Transbordo</div>`,
+    iconAnchor: [40, 12],
+  });
+  L.marker([sector.lat, sector.lng], { icon, zIndexOffset: 500 }).addTo(map)
+    .bindTooltip(sector.name, { direction: "top" });
+}
+
+function findNearestSector(lat, lng) {
+  if (!SECTORS.length) return null;
+  let nearest = null, minD = Infinity;
+  const pool = SECTORS.filter(s => s.name !== "Parada" && s.name !== "Parada sintética");
+  const src  = pool.length > 0 ? pool : SECTORS;
+  src.forEach(s => {
+    const d = haversineM(lat, lng, s.lat, s.lng);
+    if (d < minD) { minD = d; nearest = s; }
+  });
+  return nearest;
 }
 
 async function getWalkPath(from, to) {
@@ -692,7 +397,7 @@ async function getWalkPath(from, to) {
     timeText: `~${Math.ceil(distM / 83)} min`,
   };
 
-  if (distM < 50 || distM > 3000) return fallback;
+  if (distM < 30 || distM > 3000) return fallback;
 
   try {
     const res = await fetch(ORS_BASE, {
@@ -705,10 +410,9 @@ async function getWalkPath(from, to) {
     const data  = await res.json();
     const route = data?.routes?.[0];
     if (!route) return fallback;
-
     const coords = decodePolyline(route.geometry);
-    const d      = route.summary?.distance || distM;
-    const t      = route.summary?.duration || (distM / 83 * 60);
+    const d = route.summary?.distance || distM;
+    const t = route.summary?.duration || (distM / 83 * 60);
     return {
       coords:   coords.length > 1 ? coords : fallback.coords,
       distText: d < 1000 ? `${Math.round(d)} m` : `${(d/1000).toFixed(1)} km`,
@@ -728,52 +432,6 @@ function decodePolyline(enc) {
     coords.push([lat / 1e5, lng / 1e5]);
   }
   return coords;
-}
-
-function addPinMarker(map, latLng, label, color) {
-  const icon = L.divIcon({
-    className: "",
-    html: `<div style="position:relative;width:24px;height:34px">
-      <div style="width:24px;height:24px;background:${color};border:3px solid white;
-           border-radius:50%;box-shadow:0 3px 12px rgba(0,0,0,.4);display:flex;
-           align-items:center;justify-content:center;color:white;font-size:11px;font-weight:800">
-        ${color === "#27AE60" ? "A" : "B"}
-      </div>
-      <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);
-           width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;
-           border-top:12px solid ${color}"></div>
-    </div>`,
-    iconSize: [24, 34], iconAnchor: [12, 34],
-  });
-  L.marker(latLng, { icon, zIndexOffset: 1000 }).addTo(map)
-    .bindTooltip(`<strong>${label}</strong>`, { direction: "top", offset: [0, -36] });
-}
-
-function addTransferMarker(map, sector) {
-  const icon = L.divIcon({
-    className: "",
-    html: `<div style="background:#F59E0B;color:white;font-size:10px;font-weight:800;
-                padding:3px 8px;border-radius:6px;border:2px solid white;
-                box-shadow:0 2px 8px rgba(0,0,0,.3);white-space:nowrap">🔄 Transbordo</div>`,
-    iconAnchor: [40, 12],
-  });
-  L.marker([sector.lat, sector.lng], { icon, zIndexOffset: 500 }).addTo(map)
-    .bindTooltip(sector.name, { direction: "top" });
-}
-
-function findNearestSector(lat, lng) {
-  if (!SECTORS.length) return null;
-  let nearest = null, minD = Infinity;
-  // Priorizar paradas con nombre real sobre sintéticas
-  const conNombre = SECTORS.filter(s =>
-    s.name !== "Parada" && s.name !== "Parada sintética" && s.name !== "Parada oficial"
-  );
-  const pool = conNombre.length > 0 ? conNombre : SECTORS;
-  pool.forEach(s => {
-    const d = haversineM(lat, lng, s.lat, s.lng);
-    if (d < minD) { minD = d; nearest = s; }
-  });
-  return nearest;
 }
 
 function haversineM(lat1, lng1, lat2, lng2) {
