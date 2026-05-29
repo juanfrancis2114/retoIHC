@@ -40,16 +40,16 @@
       <span class="logo-text">Bus<strong>Quito</strong></span>
     </a>
     <nav class="main-nav" aria-label="Navegación principal">
-      <button class="nav-btn active" id="nav-home" aria-label="Inicio">Inicio</button>
-      <button class="nav-btn" id="nav-favorites" aria-label="Mis favoritos">⭐ Favoritos</button>
-      <button class="nav-btn" id="nav-history" aria-label="Historial">🕐 Historial</button>
+      <button class="nav-btn active" id="nav-home">Inicio</button>
+      <button class="nav-btn" id="nav-favorites">⭐ Favoritos</button>
+      <button class="nav-btn" id="nav-history">🕐 Historial</button>
     </nav>
     <div class="header-right">
-      <div class="header-loc" aria-label="Ciudad: Quito, Ecuador">
+      <div class="header-loc">
         <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="6" stroke="#FF6B2B" stroke-width="1.5"/><path d="M7 3v4l2.5 2.5" stroke="#FF6B2B" stroke-width="1.5" stroke-linecap="round"/></svg>
         Quito, EC
       </div>
-      <button class="btn-account" id="btn-account" aria-label="Mi cuenta">
+      <button class="btn-account" id="btn-account">
         <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="7" r="4" stroke="currentColor" stroke-width="1.5"/><path d="M3 17c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         <span id="account-label">Entrar</span>
       </button>
@@ -61,82 +61,69 @@
      PANTALLA: HOME
 ══════════════════════════════════ -->
 <div id="screen-home" class="screen active">
-  <section class="hero" aria-labelledby="hero-h1">
-    <div class="hero-bg-dots" aria-hidden="true"></div>
-    <div class="hero-inner">
-      <div class="hero-left">
-        <span class="hero-tag" role="doc-subtitle">Sistema de transporte urbano · Quito</span>
-        <h1 id="hero-h1">¿A dónde quieres<br/><em>ir hoy?</em></h1>
 
-        <div class="search-card" role="search" aria-label="Buscar ruta de bus">
-          <div class="search-field" id="field-origin">
-            <div class="sf-label">
-              <span class="sf-dot origin-dot" aria-hidden="true"></span>
-              <label for="input-origin">Desde</label>
-              <button class="map-pick-btn" data-mode="origin" aria-label="Seleccionar origen en el mapa">
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1C5.24 1 3 3.24 3 6c0 3.75 5 9 5 9s5-5.25 5-9c0-2.76-2.24-5-5-5zm0 6.5A1.5 1.5 0 1 1 8 4a1.5 1.5 0 0 1 0 3.5z" fill="currentColor"/></svg>
-                En mapa
-              </button>
-            </div>
-            <div class="sf-input-wrap">
-              <input id="input-origin" class="sf-input" type="text" placeholder="Escribe o elige en el mapa…" autocomplete="off" aria-autocomplete="list" aria-controls="ac-origin"/>
-              <button class="sf-clear hidden" data-target="input-origin" aria-label="Limpiar origen">✕</button>
-            </div>
-            <ul id="ac-origin" class="autocomplete" role="listbox" aria-label="Sugerencias de origen" hidden></ul>
-          </div>
-
-          <button class="swap-btn" id="btn-swap" aria-label="Intercambiar origen y destino" title="Intercambiar">
-            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 8l5-5 5 5M15 12l-5 5-5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-
-          <div class="search-field" id="field-dest">
-            <div class="sf-label">
-              <span class="sf-dot dest-dot" aria-hidden="true"></span>
-              <label for="input-dest">Hasta</label>
-              <button class="map-pick-btn" data-mode="dest" aria-label="Seleccionar destino en el mapa">
-                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1C5.24 1 3 3.24 3 6c0 3.75 5 9 5 9s5-5.25 5-9c0-2.76-2.24-5-5-5zm0 6.5A1.5 1.5 0 1 1 8 4a1.5 1.5 0 0 1 0 3.5z" fill="currentColor"/></svg>
-                En mapa
-              </button>
-            </div>
-            <div class="sf-input-wrap">
-              <input id="input-dest" class="sf-input" type="text" placeholder="¿A dónde vas?" autocomplete="off" aria-autocomplete="list" aria-controls="ac-dest"/>
-              <button class="sf-clear hidden" data-target="input-dest" aria-label="Limpiar destino">✕</button>
-            </div>
-            <ul id="ac-dest" class="autocomplete" role="listbox" aria-label="Sugerencias de destino" hidden></ul>
-          </div>
-
-          <button class="search-go" id="btn-search" aria-label="Buscar rutas de bus" disabled>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="6" stroke="white" stroke-width="1.8"/><path d="M13.5 13.5L17 17" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
-            Buscar rutas
-          </button>
-        </div>
-
-        <details class="expert-search" id="expert-panel">
-          <summary class="expert-toggle" aria-label="Abrir búsqueda por número de línea">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-            ¿Ya conoces el número de línea? Búscala directamente
-          </summary>
-          <div class="expert-body">
-            <input id="expert-input" class="expert-input" type="search" placeholder="Ej: 113, CATAR, Carcelén…" autocomplete="off"/>
-            <ul id="expert-results" class="expert-results" hidden></ul>
-          </div>
-        </details>
+  <!-- Hero con instrucción y mapa -->
+  <section class="hero-map-section">
+    <div class="hero-map-left">
+      <div class="hero-map-title">
+        <span class="hero-tag">Sistema de transporte urbano · Quito</span>
+        <h1>¿A dónde quieres <em>ir hoy?</em></h1>
+        <p class="hero-map-sub">Toca el mapa para marcar tu origen y destino, luego busca las rutas disponibles.</p>
       </div>
 
-      <!-- Card dinámica derecha -->
-      <div class="hero-right" aria-hidden="true">
-        <div class="live-card" id="live-card">
-          <div class="lc-header">
-            <span class="lc-tag">Rutas populares ahora</span>
-            <div class="lc-dot-pulse"></div>
+      <!-- Panel instrucción -->
+      <div id="home-instruction" class="home-instruction">
+        <span class="hi-dot origin" aria-hidden="true"></span>
+        <span id="hi-text">Toca el mapa para marcar tu <strong>origen</strong></span>
+      </div>
+
+      <!-- Chips origen / destino -->
+      <div class="hmp-chips">
+        <div class="hmp-chip">
+          <span class="hc-dot" style="background:#27AE60" aria-hidden="true"></span>
+          <div class="hc-info">
+            <span class="hc-sublabel">Desde</span>
+            <span id="chip-origin" class="hc-label">Toca el mapa</span>
           </div>
-          <div class="lc-routes" id="lc-routes"></div>
-          <div class="lc-footer">
-            <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="#FF6B2B" stroke-width="1.3"/><path d="M7 3.5v3.5l2 2" stroke="#FF6B2B" stroke-width="1.3" stroke-linecap="round"/></svg>
-            Actualizado hace un momento
+        </div>
+        <span class="hmp-arrow" aria-hidden="true">→</span>
+        <div class="hmp-chip">
+          <span class="hc-dot" style="background:#FF6B2B" aria-hidden="true"></span>
+          <div class="hc-info">
+            <span class="hc-sublabel">Hasta</span>
+            <span id="chip-dest" class="hc-label">Toca el mapa</span>
           </div>
         </div>
       </div>
+
+      <!-- Botones de acción -->
+      <div class="hmp-actions">
+        <button id="btn-geo-home" class="btn-geo" aria-label="Usar mi ubicación como origen">
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="3" fill="currentColor"/><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.8"/><path d="M10 1v3M10 16v3M1 10h3M16 10h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Mi ubicación
+        </button>
+        <button id="btn-reset-map" class="btn-reset" aria-label="Limpiar selección">
+          ↺ Limpiar
+        </button>
+        <button id="btn-search-map" class="btn-search-main" disabled aria-label="Buscar rutas">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="6" stroke="white" stroke-width="1.8"/><path d="M13.5 13.5L17 17" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
+          Buscar rutas
+        </button>
+      </div>
+
+      <!-- Rutas populares -->
+      <div class="live-card" id="live-card">
+        <div class="lc-header">
+          <span class="lc-tag">Rutas populares</span>
+          <div class="lc-dot-pulse" aria-hidden="true"></div>
+        </div>
+        <div class="lc-routes" id="lc-routes"></div>
+      </div>
+    </div>
+
+    <!-- Mapa principal -->
+    <div class="hero-map-right">
+      <div id="home-map" aria-label="Mapa de Quito para seleccionar origen y destino" tabindex="0"></div>
     </div>
   </section>
 
@@ -157,9 +144,8 @@
 <div id="screen-results" class="screen">
   <div class="screen-inner">
     <div class="results-top">
-      <button class="back-btn" id="back-from-results" aria-label="Volver al inicio">← Volver</button>
+      <button class="back-btn" id="back-from-results">← Volver</button>
       <div class="trip-summary" id="trip-summary" aria-live="polite"></div>
-      <button class="swap-mini" id="swap-mini" aria-label="Intercambiar origen y destino">⇅</button>
     </div>
 
     <div class="filter-bar" role="group" aria-label="Filtrar resultados">
@@ -170,7 +156,7 @@
     </div>
 
     <div class="results-layout">
-      <div class="results-list" id="results-list" aria-live="polite" aria-label="Rutas encontradas"></div>
+      <div class="results-list" id="results-list" aria-live="polite"></div>
       <div class="results-map-panel">
         <div id="results-map" aria-label="Mapa de rutas" tabindex="0"></div>
         <div class="rmap-legend">
@@ -188,10 +174,10 @@
 <div id="screen-detail" class="screen">
   <div class="screen-inner">
     <div class="detail-top">
-      <button class="back-btn" id="back-from-detail" aria-label="Volver a resultados">← Resultados</button>
+      <button class="back-btn" id="back-from-detail">← Resultados</button>
       <div class="detail-title-wrap">
         <h2 class="detail-title" id="detail-title">Detalle de ruta</h2>
-        <button class="fav-btn" id="fav-btn" aria-label="Guardar ruta en favoritos" aria-pressed="false">
+        <button class="fav-btn" id="fav-btn" aria-pressed="false">
           <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 17l-7-7a4 4 0 0 1 5.657-5.657L10 5.686l1.343-1.343A4 4 0 0 1 17 10l-7 7z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
           Guardar
         </button>
@@ -199,7 +185,7 @@
     </div>
 
     <div class="detail-layout">
-      <div class="detail-steps" id="detail-steps" aria-label="Pasos de la ruta"></div>
+      <div class="detail-steps" id="detail-steps"></div>
       <div class="detail-sidebar">
         <div class="detail-info-card" id="detail-info"></div>
         <div id="detail-map" aria-label="Mapa detallado de la ruta" tabindex="0"></div>
@@ -215,10 +201,10 @@
 <div id="screen-favorites" class="screen">
   <div class="screen-inner">
     <div class="page-header">
-      <button class="back-btn" id="back-from-fav" aria-label="Volver">← Volver</button>
+      <button class="back-btn" id="back-from-fav">← Volver</button>
       <h2 class="page-title">⭐ Mis rutas favoritas</h2>
     </div>
-    <div id="favorites-list" class="fav-list" aria-live="polite" aria-label="Lista de rutas favoritas"></div>
+    <div id="favorites-list" class="fav-list" aria-live="polite"></div>
   </div>
 </div>
 
@@ -228,11 +214,11 @@
 <div id="screen-history" class="screen">
   <div class="screen-inner">
     <div class="page-header">
-      <button class="back-btn" id="back-from-hist" aria-label="Volver">← Volver</button>
+      <button class="back-btn" id="back-from-hist">← Volver</button>
       <h2 class="page-title">🕐 Historial de búsquedas</h2>
-      <button class="clear-hist-btn" id="clear-hist" aria-label="Borrar historial">Borrar todo</button>
+      <button class="clear-hist-btn" id="clear-hist">Borrar todo</button>
     </div>
-    <div id="history-list" class="hist-list" aria-live="polite" aria-label="Historial de búsquedas"></div>
+    <div id="history-list" class="hist-list" aria-live="polite"></div>
   </div>
 </div>
 
@@ -241,7 +227,7 @@
 ══════════════════════════════════ -->
 <div id="screen-account" class="screen">
   <div class="screen-inner narrow">
-    <button class="back-btn" id="back-from-account" aria-label="Volver">← Volver</button>
+    <button class="back-btn" id="back-from-account">← Volver</button>
 
     <!-- Vista: no logueado -->
     <div id="view-auth" class="auth-card">
@@ -262,7 +248,6 @@
         <button class="auth-tab" data-tab="register" role="tab" aria-selected="false">Crear cuenta</button>
       </div>
 
-      <!-- Login form -->
       <div id="form-login" class="auth-form" role="tabpanel">
         <div class="form-field">
           <label for="login-email">Correo electrónico</label>
@@ -278,7 +263,6 @@
         <p class="auth-hint">¿No tienes cuenta? <button class="link-btn" data-tab="register">Créala aquí</button></p>
       </div>
 
-      <!-- Register form -->
       <div id="form-register" class="auth-form hidden" role="tabpanel">
         <div class="form-field">
           <label for="reg-name">Nombre completo</label>
@@ -301,55 +285,18 @@
 
     <!-- Vista: logueado -->
     <div id="view-profile" class="profile-card hidden">
-      <div class="profile-avatar" id="profile-avatar" aria-hidden="true">👤</div>
+      <div class="profile-avatar" id="profile-avatar">👤</div>
       <h2 class="profile-name" id="profile-name">Usuario</h2>
       <p class="profile-email" id="profile-email"></p>
-
       <div class="profile-stats">
         <div class="pstat"><span class="pstat-n" id="pstat-fav">0</span><span class="pstat-l">Favoritos</span></div>
         <div class="pstat"><span class="pstat-n" id="pstat-hist">0</span><span class="pstat-l">Búsquedas</span></div>
       </div>
-
       <div class="profile-actions">
         <button class="paction-btn" id="pgo-fav">⭐ Ver mis favoritos</button>
         <button class="paction-btn" id="pgo-hist">🕐 Ver historial</button>
         <button class="paction-btn danger" id="btn-logout">Cerrar sesión</button>
       </div>
-
-      <div class="profile-pref">
-        <h3>Preferencias</h3>
-        <label class="pref-row">
-          <span>Modo oscuro automático</span>
-          <input type="checkbox" id="pref-dark" role="switch" aria-label="Activar modo oscuro automático"/>
-        </label>
-        <label class="pref-row">
-          <span>Notificarme rutas populares</span>
-          <input type="checkbox" id="pref-notif" role="switch" aria-label="Activar notificaciones de rutas populares"/>
-        </label>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ══ MODAL: SELECCIÓN EN MAPA ══ -->
-<div id="map-picker-modal" class="map-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="map-modal-title">
-  <div class="map-modal">
-    <div class="map-modal-header">
-      <div class="map-modal-title-wrap">
-        <div class="map-modal-indicator" id="map-modal-indicator" aria-hidden="true"></div>
-        <h3 id="map-modal-title" class="map-modal-title">Selecciona en el mapa</h3>
-      </div>
-      <button class="map-modal-close" id="map-modal-close" aria-label="Cerrar mapa">✕</button>
-    </div>
-    <p class="map-modal-hint" id="map-modal-hint" aria-live="polite">Toca una parada para seleccionarla</p>
-    <div id="picker-map" aria-label="Mapa de sectores de Quito" tabindex="0"></div>
-    <div class="map-modal-footer">
-      <div class="map-selected-display" id="map-selected-display" aria-live="polite">
-        <span class="msd-placeholder">Ninguna parada seleccionada</span>
-      </div>
-      <button class="map-confirm-btn hidden" id="map-confirm-btn" aria-label="Confirmar selección">
-        Confirmar →
-      </button>
     </div>
   </div>
 </div>
@@ -369,11 +316,9 @@
   </div>
 </div>
 
-<!-- ══ SCRIPTS AL FINAL — SIN defer, EN ORDEN ══ -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="data.js"></script>
 <script src="maps.js"></script>
 <script src="app.js"></script>
-
 </body>
 </html>
