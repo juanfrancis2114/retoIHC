@@ -8,6 +8,442 @@
   <link rel="stylesheet" href="styles.css"/>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  <style>
+    /* ══════════════════════════════════════
+       HOME MAP SECTION – Layout dos columnas
+       ══════════════════════════════════════ */
+
+    .hero-map-section {
+      background: linear-gradient(135deg, #1A3A5C 0%, #2A5F9E 100%);
+      position: relative;
+      overflow: hidden;
+      min-height: 520px;
+    }
+
+    /* Patrón de fondo */
+    .hero-map-section::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(255,255,255,.04) 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+    }
+
+    .hero-map-section::after {
+      content: '';
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(255,107,43,.18) 0%, transparent 70%);
+      top: -150px;
+      right: 350px;
+      pointer-events: none;
+    }
+
+    .hero-map-inner {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 480px 1fr;
+      min-height: 520px;
+    }
+
+    /* ── Panel izquierdo ── */
+    .hero-map-left {
+      padding: 44px 36px 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .hero-tag {
+      display: inline-block;
+      background: rgba(255,107,43,.2);
+      color: #ADE0FF;
+      font-size: .71rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 50px;
+      width: fit-content;
+    }
+
+    .hero-map-title h1 {
+      font-size: clamp(1.8rem, 3vw, 2.6rem);
+      color: #fff;
+      font-weight: 800;
+      line-height: 1.12;
+      letter-spacing: -.4px;
+      margin-top: 8px;
+    }
+
+    .hero-map-title h1 em {
+      color: #FF6B2B;
+      font-style: normal;
+    }
+
+    /* ── Instrucción ── */
+    .home-instruction {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: .88rem;
+      color: rgba(255,255,255,.9);
+      font-weight: 500;
+    }
+
+    .hi-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .hi-dot.origin { background: #27AE60; box-shadow: 0 0 0 3px rgba(39,174,96,.3); }
+    .hi-dot.dest   { background: #FF6B2B; box-shadow: 0 0 0 3px rgba(255,107,43,.3); }
+    .hi-dot.done   { background: #ADE0FF; box-shadow: 0 0 0 3px rgba(173,224,255,.3); }
+
+    /* ── Campos origen / destino ── */
+    .hmp-fields {
+      background: rgba(255,255,255,.1);
+      backdrop-filter: blur(16px);
+      border: 1.5px solid rgba(255,255,255,.18);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .hmp-field {
+      position: relative;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+      transition: background .2s;
+    }
+
+    .hmp-field:last-child { border-bottom: none; }
+    .hmp-field:hover { background: rgba(255,255,255,.06); }
+
+    .hmp-field-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 4px;
+    }
+
+    .hmp-field-label span.label-text {
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: rgba(255,255,255,.5);
+    }
+
+    .field-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .hmp-field-value {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding-right: 80px;
+    }
+
+    .hmp-field-value.placeholder-text {
+      color: rgba(255,255,255,.35);
+      font-weight: 400;
+      font-size: .93rem;
+    }
+
+    .hmp-field-actions {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .field-geo-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.2);
+      color: rgba(255,255,255,.75);
+      padding: 4px 10px;
+      border-radius: 50px;
+      font-size: .7rem;
+      font-weight: 700;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      cursor: pointer;
+      transition: all .2s;
+      white-space: nowrap;
+    }
+
+    .field-geo-btn:hover {
+      background: rgba(39,174,96,.3);
+      border-color: #27AE60;
+      color: #fff;
+    }
+
+    .field-geo-btn:disabled {
+      opacity: .5;
+      cursor: wait;
+    }
+
+    .field-clear-btn {
+      background: rgba(255,255,255,.1);
+      border: none;
+      color: rgba(255,255,255,.5);
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      font-size: .7rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all .2s;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+
+    .field-clear-btn:hover {
+      background: rgba(255,255,255,.25);
+      color: #fff;
+    }
+
+    /* ── Botones de acción ── */
+    .hmp-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .btn-reset-home {
+      background: rgba(255,255,255,.1);
+      border: 1.5px solid rgba(255,255,255,.18);
+      color: rgba(255,255,255,.75);
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: .85rem;
+      font-weight: 700;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      cursor: pointer;
+      transition: all .2s;
+      white-space: nowrap;
+    }
+
+    .btn-reset-home:hover {
+      background: rgba(255,255,255,.2);
+      color: #fff;
+    }
+
+    .btn-search-home {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: #FF6B2B;
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: .95rem;
+      font-weight: 700;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .btn-search-home:hover:not(:disabled) {
+      background: #E05520;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(255,107,43,.4);
+    }
+
+    .btn-search-home:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* ── Live card ── */
+    .home-live-card {
+      background: rgba(255,255,255,.07);
+      backdrop-filter: blur(12px);
+      border: 1.5px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin-top: 4px;
+    }
+
+    .hlc-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .hlc-tag {
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      color: rgba(173,224,255,.7);
+    }
+
+    .hlc-pulse {
+      width: 7px;
+      height: 7px;
+      background: #27AE60;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(39,174,96,.4); }
+      70%       { box-shadow: 0 0 0 6px rgba(39,174,96,0); }
+    }
+
+    .hlc-routes {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .hlc-route {
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 10px;
+      padding: 9px 12px;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .hlc-route:hover {
+      background: rgba(255,255,255,.14);
+      border-color: rgba(255,107,43,.35);
+    }
+
+    .hlc-route-path {
+      font-size: .86rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .hlc-route-meta {
+      font-size: .72rem;
+      color: rgba(173,224,255,.65);
+      margin-top: 2px;
+    }
+
+    /* ── Panel derecho: mapa ── */
+    .hero-map-right {
+      position: relative;
+    }
+
+    #home-map {
+      width: 100%;
+      height: 100%;
+      min-height: 520px;
+    }
+
+    /* Overlay de instrucción sobre el mapa */
+    .map-overlay-hint {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(26,58,92,.9);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,.15);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 50px;
+      font-size: .78rem;
+      font-weight: 600;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      z-index: 500;
+      pointer-events: none;
+      white-space: nowrap;
+      transition: opacity .3s;
+    }
+
+    /* ── Stats bar ── */
+    .stats-bar {
+      background: #fff;
+      border-bottom: 1.5px solid #DDE3EC;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px 24px;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 32px;
+    }
+
+    .stat-n {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: #FF6B2B;
+    }
+
+    .stat-l {
+      font-size: .73rem;
+      font-weight: 600;
+      color: #6B7A92;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    .stat-sep {
+      width: 1.5px;
+      height: 32px;
+      background: #DDE3EC;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .hero-map-inner {
+        grid-template-columns: 1fr;
+      }
+      .hero-map-right {
+        order: -1;
+      }
+      #home-map {
+        min-height: 280px;
+        height: 280px;
+      }
+      .hero-map-left {
+        padding: 28px 20px 32px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .stats-bar { gap: 0; padding: 12px 10px; }
+      .stat-item  { padding: 0 14px; }
+      .stat-n     { font-size: 1rem; }
+    }
+  </style>
 </head>
 <body>
 
@@ -19,7 +455,10 @@
   <button class="a11y-btn" id="font-lg" aria-label="Texto grande">A+</button>
   <div class="a11y-sep" aria-hidden="true"></div>
   <button class="a11y-btn" id="btn-contrast" aria-label="Alto contraste" aria-pressed="false">
-    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 1a7 7 0 0 1 0 14Z" fill="currentColor"/></svg>
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M8 1a7 7 0 0 1 0 14Z" fill="currentColor"/>
+    </svg>
     Contraste
   </button>
 </div>
@@ -46,11 +485,17 @@
     </nav>
     <div class="header-right">
       <div class="header-loc">
-        <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="6" stroke="#FF6B2B" stroke-width="1.5"/><path d="M7 3v4l2.5 2.5" stroke="#FF6B2B" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <circle cx="7" cy="7" r="6" stroke="#FF6B2B" stroke-width="1.5"/>
+          <path d="M7 3v4l2.5 2.5" stroke="#FF6B2B" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
         Quito, EC
       </div>
       <button class="btn-account" id="btn-account">
-        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="7" r="4" stroke="currentColor" stroke-width="1.5"/><path d="M3 17c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <circle cx="10" cy="7" r="4" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M3 17c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
         <span id="account-label">Entrar</span>
       </button>
     </div>
@@ -62,81 +507,109 @@
 ══════════════════════════════════ -->
 <div id="screen-home" class="screen active">
 
-  <!-- Hero con instrucción y mapa -->
+  <!-- Hero + Mapa -->
   <section class="hero-map-section">
-    <div class="hero-map-left">
-      <div class="hero-map-title">
-        <span class="hero-tag">Sistema de transporte urbano · Quito</span>
-        <h1>¿A dónde quieres <em>ir hoy?</em></h1>
-        <p class="hero-map-sub">Toca el mapa para marcar tu origen y destino, luego busca las rutas disponibles.</p>
-      </div>
+    <div class="hero-map-inner">
 
-      <!-- Panel instrucción -->
-      <div id="home-instruction" class="home-instruction">
-        <span class="hi-dot origin" aria-hidden="true"></span>
-        <span id="hi-text">Toca el mapa para marcar tu <strong>origen</strong></span>
-      </div>
+      <!-- ── Columna izquierda: controles ── -->
+      <div class="hero-map-left">
 
-      <!-- Chips origen / destino -->
-      <div class="hmp-chips">
-        <div class="hmp-chip">
-          <span class="hc-dot" style="background:#27AE60" aria-hidden="true"></span>
-          <div class="hc-info">
-            <span class="hc-sublabel">Desde</span>
-            <span id="chip-origin" class="hc-label">Toca el mapa</span>
+        <div class="hero-map-title">
+          <span class="hero-tag">Sistema de transporte urbano · Quito</span>
+          <h1>¿A dónde quieres <em>ir hoy?</em></h1>
+        </div>
+
+        <!-- Instrucción dinámica -->
+        <div id="home-instruction" class="home-instruction">
+          <span class="hi-dot origin"></span>
+          <span id="hi-text">Toca el mapa para marcar tu <strong>origen</strong></span>
+        </div>
+
+        <!-- Campos origen / destino -->
+        <div class="hmp-fields">
+
+          <!-- Campo DESDE -->
+          <div class="hmp-field" id="field-origin">
+            <div class="hmp-field-label">
+              <span class="field-dot" style="background:#27AE60"></span>
+              <span class="label-text">Desde</span>
+            </div>
+            <div class="hmp-field-value placeholder-text" id="chip-origin">
+              Toca el mapa o usa tu ubicación
+            </div>
+            <div class="hmp-field-actions">
+              <button class="field-geo-btn" id="btn-geo-origin" title="Usar mi ubicación como origen">
+                <svg width="11" height="11" viewBox="0 0 20 20" fill="none">
+                  <circle cx="10" cy="10" r="3" fill="currentColor"/>
+                  <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.8"/>
+                  <path d="M10 1v3M10 16v3M1 10h3M16 10h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>
+                Mi ubicación
+              </button>
+              <button class="field-clear-btn" id="btn-clear-origin" style="display:none" title="Limpiar origen">✕</button>
+            </div>
           </div>
-        </div>
-        <span class="hmp-arrow" aria-hidden="true">→</span>
-        <div class="hmp-chip">
-          <span class="hc-dot" style="background:#FF6B2B" aria-hidden="true"></span>
-          <div class="hc-info">
-            <span class="hc-sublabel">Hasta</span>
-            <span id="chip-dest" class="hc-label">Toca el mapa</span>
+
+          <!-- Campo HASTA -->
+          <div class="hmp-field" id="field-dest">
+            <div class="hmp-field-label">
+              <span class="field-dot" style="background:#FF6B2B"></span>
+              <span class="label-text">Hasta</span>
+            </div>
+            <div class="hmp-field-value placeholder-text" id="chip-dest">
+              Toca el mapa para marcar destino
+            </div>
+            <div class="hmp-field-actions">
+              <button class="field-clear-btn" id="btn-clear-dest" style="display:none" title="Limpiar destino">✕</button>
+            </div>
           </div>
+
+        </div><!-- /.hmp-fields -->
+
+        <!-- Botones -->
+        <div class="hmp-actions">
+          <button class="btn-reset-home" id="btn-reset-map">↺ Limpiar</button>
+          <button class="btn-search-home" id="btn-search-map" disabled>
+            <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+              <circle cx="9" cy="9" r="6" stroke="white" stroke-width="1.8"/>
+              <path d="M13.5 13.5L17 17" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            Buscar rutas
+          </button>
         </div>
-      </div>
 
-      <!-- Botones de acción -->
-      <div class="hmp-actions">
-        <button id="btn-geo-home" class="btn-geo" aria-label="Usar mi ubicación como origen">
-          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="10" cy="10" r="3" fill="currentColor"/><circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.8"/><path d="M10 1v3M10 16v3M1 10h3M16 10h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-          Mi ubicación
-        </button>
-        <button id="btn-reset-map" class="btn-reset" aria-label="Limpiar selección">
-          ↺ Limpiar
-        </button>
-        <button id="btn-search-map" class="btn-search-main" disabled aria-label="Buscar rutas">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><circle cx="9" cy="9" r="6" stroke="white" stroke-width="1.8"/><path d="M13.5 13.5L17 17" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>
-          Buscar rutas
-        </button>
-      </div>
-
-      <!-- Rutas populares -->
-      <div class="live-card" id="live-card">
-        <div class="lc-header">
-          <span class="lc-tag">Rutas populares</span>
-          <div class="lc-dot-pulse" aria-hidden="true"></div>
+        <!-- Rutas populares -->
+        <div class="home-live-card">
+          <div class="hlc-header">
+            <span class="hlc-tag">Rutas populares ahora</span>
+            <div class="hlc-pulse"></div>
+          </div>
+          <div class="hlc-routes" id="lc-routes"></div>
         </div>
-        <div class="lc-routes" id="lc-routes"></div>
-      </div>
-    </div>
 
-    <!-- Mapa principal -->
-    <div class="hero-map-right">
-      <div id="home-map" aria-label="Mapa de Quito para seleccionar origen y destino" tabindex="0"></div>
-    </div>
+      </div><!-- /.hero-map-left -->
+
+      <!-- ── Columna derecha: mapa ── -->
+      <div class="hero-map-right">
+        <div id="home-map" aria-label="Mapa de Quito para seleccionar origen y destino" tabindex="0"></div>
+        <div class="map-overlay-hint" id="map-hint">📍 Toca para marcar tu origen</div>
+      </div>
+
+    </div><!-- /.hero-map-inner -->
   </section>
 
+  <!-- Stats bar -->
   <div class="stats-bar" aria-label="Estadísticas del sistema">
     <div class="stat-item"><span class="stat-n">35+</span><span class="stat-l">Empresas</span></div>
-    <div class="stat-sep" aria-hidden="true"></div>
+    <div class="stat-sep"></div>
     <div class="stat-item"><span class="stat-n">120+</span><span class="stat-l">Líneas</span></div>
-    <div class="stat-sep" aria-hidden="true"></div>
+    <div class="stat-sep"></div>
     <div class="stat-item"><span class="stat-n">3</span><span class="stat-l">Zonas</span></div>
-    <div class="stat-sep" aria-hidden="true"></div>
+    <div class="stat-sep"></div>
     <div class="stat-item"><span class="stat-n">Norte · Sur · Centro</span><span class="stat-l">Cobertura</span></div>
   </div>
-</div>
+
+</div><!-- /#screen-home -->
 
 <!-- ══════════════════════════════════
      PANTALLA: RESULTADOS
@@ -169,7 +642,7 @@
 </div>
 
 <!-- ══════════════════════════════════
-     PANTALLA: DETALLE DE RUTA
+     PANTALLA: DETALLE
 ══════════════════════════════════ -->
 <div id="screen-detail" class="screen">
   <div class="screen-inner">
@@ -178,12 +651,14 @@
       <div class="detail-title-wrap">
         <h2 class="detail-title" id="detail-title">Detalle de ruta</h2>
         <button class="fav-btn" id="fav-btn" aria-pressed="false">
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 17l-7-7a4 4 0 0 1 5.657-5.657L10 5.686l1.343-1.343A4 4 0 0 1 17 10l-7 7z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M10 17l-7-7a4 4 0 0 1 5.657-5.657L10 5.686l1.343-1.343A4 4 0 0 1 17 10l-7 7z"
+                  stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          </svg>
           Guardar
         </button>
       </div>
     </div>
-
     <div class="detail-layout">
       <div class="detail-steps" id="detail-steps"></div>
       <div class="detail-sidebar">
@@ -304,7 +779,7 @@
 <!-- ══ TOAST ══ -->
 <div id="toast" class="toast hidden" role="alert" aria-live="assertive" aria-atomic="true"></div>
 
-<!-- ══ MODAL CONFIRMACIÓN ══ -->
+<!-- ══ MODAL ══ -->
 <div id="modal-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
   <div class="modal">
     <h3 id="modal-title" class="modal-title"></h3>
@@ -320,5 +795,270 @@
 <script src="data.js"></script>
 <script src="maps.js"></script>
 <script src="app.js"></script>
+
+<script>
+/* ══════════════════════════════════════
+   HOME MAP – lógica del nuevo index
+   Reemplaza completamente initHomeMap()
+   de app.js con este bloque inline
+   ══════════════════════════════════════ */
+(function patchHomeMap() {
+
+  // Esperar a que app.js esté listo
+  document.addEventListener("DOMContentLoaded", () => {}, { once: true });
+
+  // Override de initHomeMap
+  window._initHomeMapNew = function() {
+    const container = document.getElementById("home-map");
+    if (!container) return;
+
+    // Crear mapa
+    const map = L.map(container, { zoomControl: true, attributionControl: false })
+      .setView([-0.2201, -78.5123], 13);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OSM contributors", maxZoom: 19,
+    }).addTo(map);
+
+    if (typeof APP !== "undefined") APP.maps = APP.maps || {};
+    if (typeof APP !== "undefined") APP.maps["home-map"] = map;
+
+    let originMarker = null;
+    let destMarker   = null;
+    let lineDashed   = null;
+    let clickState   = "origin"; // "origin" | "dest" | "done"
+
+    // Geoloc inicial
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        if (lat > -6 && lat < 2) map.setView([lat, lng], 15);
+      }, () => {}, { timeout: 5000 });
+    }
+
+    function updateInstruction() {
+      const el   = document.getElementById("home-instruction");
+      const hint = document.getElementById("map-hint");
+      if (!el) return;
+
+      if (clickState === "origin") {
+        el.innerHTML = `<span class="hi-dot origin"></span> Toca el mapa para marcar tu <strong>origen</strong>`;
+        if (hint) hint.textContent = "📍 Toca para marcar tu origen";
+      } else if (clickState === "dest") {
+        el.innerHTML = `<span class="hi-dot dest"></span> Ahora toca para marcar tu <strong>destino</strong>`;
+        if (hint) hint.textContent = "🏁 Toca para marcar tu destino";
+      } else {
+        el.innerHTML = `<span class="hi-dot done"></span> ¡Listo! Presiona <strong>Buscar rutas</strong>`;
+        if (hint) { hint.textContent = "✅ Origen y destino marcados"; hint.style.opacity = "0"; }
+      }
+    }
+
+    function setChip(which, label) {
+      const el = document.getElementById(which === "origin" ? "chip-origin" : "chip-dest");
+      const clearBtn = document.getElementById(which === "origin" ? "btn-clear-origin" : "btn-clear-dest");
+      if (el) {
+        el.textContent = label;
+        el.classList.remove("placeholder-text");
+      }
+      if (clearBtn) clearBtn.style.display = "flex";
+    }
+
+    function clearChip(which) {
+      const el = document.getElementById(which === "origin" ? "chip-origin" : "chip-dest");
+      const clearBtn = document.getElementById(which === "origin" ? "btn-clear-origin" : "btn-clear-dest");
+      if (el) {
+        el.textContent = which === "origin" ? "Toca el mapa o usa tu ubicación" : "Toca el mapa para marcar destino";
+        el.classList.add("placeholder-text");
+      }
+      if (clearBtn) clearBtn.style.display = "none";
+    }
+
+    function makePinIcon(color, letter) {
+      return L.divIcon({
+        className: "",
+        html: `<div style="position:relative;width:28px;height:38px">
+          <div style="width:28px;height:28px;background:${color};border:3px solid white;
+               border-radius:50%;box-shadow:0 3px 10px rgba(0,0,0,.35);display:flex;
+               align-items:center;justify-content:center;color:white;font-size:13px;font-weight:800">
+            ${letter}
+          </div>
+          <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+               width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;
+               border-top:12px solid ${color}"></div>
+        </div>`,
+        iconSize: [28, 38], iconAnchor: [14, 38],
+      });
+    }
+
+    async function handleMapClick(lat, lng) {
+      const addr = (typeof reverseGeocode === "function")
+        ? await reverseGeocode(lat, lng)
+        : null;
+      const label = addr || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+      if (clickState === "origin") {
+        if (originMarker) originMarker.remove();
+        originMarker = L.marker([lat, lng], { icon: makePinIcon("#27AE60", "A") })
+          .addTo(map)
+          .bindTooltip(`<strong>Origen:</strong> ${label}`, { permanent: false });
+
+        if (typeof APP !== "undefined") {
+          APP.originLatLng = { lat, lng };
+          APP.originLabel  = label;
+        }
+        setChip("origin", label);
+        clickState = "dest";
+        if (typeof showToast === "function") showToast(`📍 Origen: ${label}`);
+
+      } else if (clickState === "dest") {
+        if (destMarker) destMarker.remove();
+        destMarker = L.marker([lat, lng], { icon: makePinIcon("#FF6B2B", "B") })
+          .addTo(map)
+          .bindTooltip(`<strong>Destino:</strong> ${label}`, { permanent: false });
+
+        if (typeof APP !== "undefined") {
+          APP.destLatLng  = { lat, lng };
+          APP.destLabel   = label;
+        }
+        setChip("dest", label);
+        clickState = "done";
+
+        // Línea punteada
+        if (typeof APP !== "undefined" && APP.originLatLng) {
+          if (lineDashed) lineDashed.remove();
+          lineDashed = L.polyline(
+            [[APP.originLatLng.lat, APP.originLatLng.lng], [lat, lng]],
+            { color: "#888", weight: 2, dashArray: "8 6", opacity: 0.6 }
+          ).addTo(map);
+
+          map.fitBounds(
+            L.latLngBounds([APP.originLatLng.lat, APP.originLatLng.lng], [lat, lng]),
+            { padding: [60, 60] }
+          );
+        }
+
+        const btnSearch = document.getElementById("btn-search-map");
+        if (btnSearch) btnSearch.disabled = false;
+        if (typeof showToast === "function") showToast(`🏁 Destino: ${label}`);
+      }
+
+      updateInstruction();
+    }
+
+    map.on("click", e => handleMapClick(e.latlng.lat, e.latlng.lng));
+
+    // ── Botón: Limpiar ──
+    document.getElementById("btn-reset-map")?.addEventListener("click", () => {
+      if (originMarker) { originMarker.remove(); originMarker = null; }
+      if (destMarker)   { destMarker.remove();   destMarker   = null; }
+      if (lineDashed)   { lineDashed.remove();   lineDashed   = null; }
+      clickState = "origin";
+
+      if (typeof APP !== "undefined") {
+        APP.originLatLng = null;
+        APP.destLatLng   = null;
+        APP.originLabel  = null;
+        APP.destLabel    = null;
+      }
+
+      clearChip("origin");
+      clearChip("dest");
+
+      const btnSearch = document.getElementById("btn-search-map");
+      if (btnSearch) btnSearch.disabled = true;
+
+      map.setView([-0.2201, -78.5123], 13);
+      updateInstruction();
+
+      const hint = document.getElementById("map-hint");
+      if (hint) hint.style.opacity = "1";
+    });
+
+    // ── Botón: Mi ubicación (origen) ──
+    document.getElementById("btn-geo-origin")?.addEventListener("click", async function() {
+      this.disabled = true;
+      this.textContent = "⏳ Localizando…";
+      try {
+        const pos = await (typeof getCurrentPosition === "function"
+          ? getCurrentPosition()
+          : new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 })));
+        const { latitude: lat, longitude: lng } = pos.coords;
+        map.setView([lat, lng], 15);
+        await handleMapClick(lat, lng);
+      } catch {
+        if (typeof showToast === "function") showToast("❌ No se pudo obtener tu ubicación");
+      } finally {
+        this.disabled = false;
+        this.innerHTML = `<svg width="11" height="11" viewBox="0 0 20 20" fill="none">
+          <circle cx="10" cy="10" r="3" fill="currentColor"/>
+          <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M10 1v3M10 16v3M1 10h3M16 10h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg> Mi ubicación`;
+      }
+    });
+
+    // ── Botón: Limpiar origen individual ──
+    document.getElementById("btn-clear-origin")?.addEventListener("click", () => {
+      if (originMarker) { originMarker.remove(); originMarker = null; }
+      if (lineDashed)   { lineDashed.remove();   lineDashed   = null; }
+      clearChip("origin");
+      if (typeof APP !== "undefined") { APP.originLatLng = null; APP.originLabel = null; }
+      clickState = "origin";
+      document.getElementById("btn-search-map").disabled = true;
+      updateInstruction();
+    });
+
+    // ── Botón: Limpiar destino individual ──
+    document.getElementById("btn-clear-dest")?.addEventListener("click", () => {
+      if (destMarker) { destMarker.remove(); destMarker = null; }
+      if (lineDashed) { lineDashed.remove(); lineDashed = null; }
+      clearChip("dest");
+      if (typeof APP !== "undefined") { APP.destLatLng = null; APP.destLabel = null; }
+      if (clickState === "done") clickState = "dest";
+      document.getElementById("btn-search-map").disabled = true;
+      updateInstruction();
+      const hint = document.getElementById("map-hint");
+      if (hint) hint.style.opacity = "1";
+    });
+
+    // ── Botón: Buscar rutas ──
+    document.getElementById("btn-search-map")?.addEventListener("click", () => {
+      if (typeof APP === "undefined" || !APP.originLatLng || !APP.destLatLng) {
+        if (typeof showToast === "function") showToast("Marca origen y destino en el mapa primero");
+        return;
+      }
+      const results = (typeof findRoutesByCoords === "function")
+        ? findRoutesByCoords(APP.originLatLng, APP.destLatLng)
+        : [];
+      APP.results = results;
+
+      const entry = {
+        originLatLng: APP.originLatLng,
+        destLatLng:   APP.destLatLng,
+        originLabel:  APP.originLabel || "Origen",
+        destLabel:    APP.destLabel   || "Destino",
+        label:        `${APP.originLabel || "Origen"} → ${APP.destLabel || "Destino"}`,
+        date: new Date().toLocaleDateString("es-EC", {
+          day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
+        }),
+      };
+      APP.history = [entry, ...APP.history.filter(h => h.label !== entry.label)].slice(0, 20);
+      if (typeof saveStorage === "function") saveStorage();
+
+      if (typeof renderResults === "function") renderResults();
+      if (typeof showScreen === "function") showScreen("results");
+    });
+
+    // ── Reubicar mapa cuando se vuelve a home ──
+    document.getElementById("nav-home")?.addEventListener("click", () => {
+      setTimeout(() => map?.invalidateSize(), 200);
+    });
+
+    updateInstruction();
+  };
+
+})();
+</script>
+
 </body>
 </html>
