@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════
-   BusQuito – data.js  (v6 – coordenadas JSONB + paradas sintéticas)
+   BusQuito – data.js  (v7 – búsqueda por proximidad geográfica)
    ══════════════════════════════════════ */
 
 const SUPABASE_URL  = "https://vedsmsrvllugtztyczxe.supabase.co";
@@ -25,14 +25,10 @@ function inferZona(lat) {
   return "centro";
 }
 
-// ─── Aplanar coordenadas de segmentos ─────────────────────
-// La API devuelve [[seg1], [seg2], ...] donde cada seg es [[lat,lng],...]
 function aplanarCoordenadas(coords) {
   if (!Array.isArray(coords) || coords.length === 0) return [];
-  // Detectar si es array de segmentos: coords[0][0] es array
   const esSegmentos = Array.isArray(coords[0]) && Array.isArray(coords[0][0]);
   const puntos = esSegmentos ? coords.flat() : coords;
-  // Filtrar puntos válidos en Ecuador y retornar como [lat, lng]
   return puntos.filter(p =>
     Array.isArray(p) && p.length >= 2 &&
     p[0] > -6 && p[0] < 2 &&
@@ -93,22 +89,13 @@ async function fetchAllPages(table, selectCols, extraParams = {}) {
     }
 
     const chunk = await res.json();
-    if (!Array.isArray(chunk) || chunk.length === 0) {
-      console.log(`✅ ${table}: fin de datos en offset ${offset}`);
-      break;
-    }
+    if (!Array.isArray(chunk) || chunk.length === 0) break;
 
     results = results.concat(chunk);
     console.log(`📦 ${table}: ${results.length}/${totalKnown ?? "?"} cargados`);
 
-    if (totalKnown !== null && results.length >= totalKnown) {
-      console.log(`✅ ${table}: carga completa (${results.length} registros)`);
-      break;
-    }
-    if (chunk.length < pageSize) {
-      console.log(`✅ ${table}: última página (chunk=${chunk.length})`);
-      break;
-    }
+    if (totalKnown !== null && results.length >= totalKnown) break;
+    if (chunk.length < pageSize) break;
 
     offset += pageSize;
   }
@@ -121,22 +108,15 @@ async function fetchAllPages(table, selectCols, extraParams = {}) {
 // ══════════════════════════════════════════════════════════
 async function loadDataFromSupabase() {
   if (!SUPABASE_CONFIGURED) {
-    console.warn("⚠️  Credenciales de Supabase no configuradas. Usando datos de respaldo.");
+    console.warn("⚠️ Credenciales no configuradas. Usando datos de respaldo.");
     loadFallbackData();
     return false;
   }
 
   try {
-    // ── 1. Paradas ─────────────────────────────────────────
     console.log("🔄 Cargando paradas…");
-    const rawParadas = await fetchAllPages(
-      "paradas",
-      "id_parada,nombre,latitud,longitud"
-    );
-
-    if (!rawParadas || rawParadas.length === 0) {
-      throw new Error("Sin paradas en Supabase");
-    }
+    const rawParadas = await fetchAllPages("paradas", "id_parada,nombre,latitud,longitud");
+    if (!rawParadas || rawParadas.length === 0) throw new Error("Sin paradas en Supabase");
     console.log(`✅ Paradas cargadas: ${rawParadas.length}`);
 
     SECTORS = rawParadas.map(p => ({
@@ -152,81 +132,51 @@ async function loadDataFromSupabase() {
       SECTOR_BY_ID[s.id]         = s;
       SECTOR_BY_ID[Number(s.id)] = s;
     });
-    console.log(`✅ SECTOR_BY_ID construido con ${SECTORS.length} entradas`);
+    console.log(`✅ SECTOR_BY_ID: ${SECTORS.length} paradas`);
 
-    // ── 2. Rutas (con coordenadas JSONB) ───────────────────
     console.log("🔄 Cargando rutas…");
     let rawRutas = await fetchAllPages(
       "rutas",
       "id_ruta,nombre,cooperativa,color,codigo,tiempo_estimado,activa,coordenadas",
       { "activa": "eq.true" }
     );
-
     if (!rawRutas || rawRutas.length === 0) {
-      console.warn("⚠️ Sin rutas con activa=true, cargando todas…");
-      rawRutas = await fetchAllPages(
-        "rutas",
-        "id_ruta,nombre,cooperativa,color,codigo,tiempo_estimado,activa,coordenadas"
-      );
-      rawRutas = rawRutas.filter(r => r.activa !== false);
+      rawRutas = await fetchAllPages("rutas", "id_ruta,nombre,cooperativa,color,codigo,tiempo_estimado,activa,coordenadas");
     }
+    if (!rawRutas || rawRutas.length === 0) throw new Error("Sin rutas en Supabase");
+    console.log(`✅ Rutas cargadas: ${rawRutas.length}`);
 
-    if (!rawRutas || rawRutas.length === 0) {
-      throw new Error("Sin rutas en Supabase");
-    }
-    console.log(`✅ Rutas cargadas desde BD: ${rawRutas.length}`);
-
-    // ── 3. Relación ruta↔parada ────────────────────────────
     console.log("🔄 Cargando ruta_paradas…");
-    const rawRP = await fetchAllPages(
-      "ruta_paradas",
-      "id_ruta,id_parada,orden_parada",
-      { "order": "orden_parada.asc" }
-    );
-    console.log(`✅ Ruta-paradas cargadas: ${rawRP.length}`);
+    const rawRP = await fetchAllPages("ruta_paradas", "id_ruta,id_parada,orden_parada", { "order": "orden_parada.asc" });
+    console.log(`✅ ruta_paradas: ${rawRP.length}`);
 
-    // Agrupar paradas por ruta
     const paradasPorRuta = {};
     rawRP.forEach(rp => {
       const rid = String(rp.id_ruta);
       if (!paradasPorRuta[rid]) paradasPorRuta[rid] = [];
-      paradasPorRuta[rid].push({
-        id:    String(rp.id_parada),
-        orden: rp.orden_parada,
-      });
+      paradasPorRuta[rid].push({ id: String(rp.id_parada), orden: rp.orden_parada });
     });
 
-    let rutasDescartadas     = 0;
-    let paradasNoEncontradas = 0;
-    let rutasConPath         = 0;
+    let rutasDescartadas = 0, rutasConPath = 0;
 
     ROUTES = rawRutas.map(r => {
-      const grupo   = paradasPorRuta[String(r.id_ruta)] || [];
+      const grupo = paradasPorRuta[String(r.id_ruta)] || [];
       const paradas = grupo
         .sort((a, b) => a.orden - b.orden)
         .map(p => {
           const found = SECTOR_BY_ID[p.id] || SECTOR_BY_ID[Number(p.id)];
-          if (found) return found.id;
-          paradasNoEncontradas++;
-          return null;
+          return found ? found.id : null;
         })
         .filter(Boolean);
 
-      if (paradas.length < 2) {
-        rutasDescartadas++;
-        return null;
-      }
+      if (paradas.length < 2) { rutasDescartadas++; return null; }
 
       const linea = (r.codigo || r.nombre || String(r.id_ruta)).trim();
 
-      // Procesar coordenadas JSONB para el mapa
       let path = null;
       if (Array.isArray(r.coordenadas) && r.coordenadas.length > 0) {
         const puntos = aplanarCoordenadas(r.coordenadas);
-        if (puntos.length >= 2) {
-          path = puntos; // ya en formato [lat, lng]
-          rutasConPath++;
-        }
+        if (puntos.length >= 2) { path = puntos; rutasConPath++; }
       }
 
       return {
@@ -241,44 +191,23 @@ async function loadDataFromSupabase() {
       };
     }).filter(Boolean);
 
-    console.log(`✅ Rutas construidas: ${ROUTES.length}`);
-    if (rutasDescartadas    > 0) console.warn(`⚠️ ${rutasDescartadas} rutas descartadas por <2 paradas`);
-    if (paradasNoEncontradas > 0) console.warn(`⚠️ ${paradasNoEncontradas} paradas sin match`);
+    console.log(`✅ Rutas construidas: ${ROUTES.length} (${rutasDescartadas} descartadas, ${rutasConPath} con GPS)`);
 
     buildPopularData();
-
-    console.log(
-      `\n🚌 BusQuito listo:\n` +
-      `   Paradas : ${SECTORS.length}\n` +
-      `   Rutas   : ${ROUTES.length}\n` +
-      `   Con GPS : ${rutasConPath}`
-    );
-
-    // Test del motor
-    if (ROUTES.length > 0) {
-      const r0 = ROUTES[0];
-      const testO = r0.stops[0];
-      const testD = r0.stops[r0.stops.length - 1];
-      const testResults = findRoutes(testO, testD);
-      console.log(`🔍 Test findRoutes: ${testResults.length} resultados`);
-    }
-
     return true;
 
   } catch (err) {
-    console.error("❌ Error cargando desde Supabase:", err.message);
+    console.error("❌ Error Supabase:", err.message);
     loadFallbackData();
     return false;
   }
 }
 
-// ─── Color consistente por id ──────────────────────────────
 function randomRouteColor(id) {
   const palette = ["#FF6B2B","#2196F3","#4CAF50","#9C27B0","#F44336","#00BCD4","#FF9800","#607D8B","#E91E63","#3F51B5"];
   return palette[id % palette.length];
 }
 
-// ─── Popular data ──────────────────────────────────────────
 function buildPopularData() {
   const byZona = { norte: [], centro: [], sur: [] };
   SECTORS.forEach(s => { if (byZona[s.zona]) byZona[s.zona].push(s); });
@@ -289,9 +218,8 @@ function buildPopularData() {
     ...byZona.sur.slice(0, 3).map(s => s.id),
   ];
 
-  const n1 = byZona.norte[0],  n2 = byZona.norte[1];
-  const c1 = byZona.centro[0], c2 = byZona.centro[1];
-  const s1 = byZona.sur[0],    s2 = byZona.sur[1];
+  const n1 = byZona.norte[0], c1 = byZona.centro[0], s1 = byZona.sur[0];
+  const n2 = byZona.norte[1], c2 = byZona.centro[1], s2 = byZona.sur[1];
 
   POPULAR_TRIPS = [
     n1 && c1 && { from: n1.id, to: c1.id, label: `${n1.name} → ${c1.name}` },
@@ -305,124 +233,201 @@ function buildPopularData() {
 //  DATOS DE RESPALDO
 // ══════════════════════════════════════════════════════════
 function loadFallbackData() {
-  console.warn("⚠️  Usando datos de respaldo offline.");
-
   SECTORS = [
-    { id:"carc",    name:"Carcelén",            lat:-0.0779, lng:-78.4792, zona:"norte"  },
-    { id:"comu",    name:"Comité del Pueblo",   lat:-0.0950, lng:-78.4770, zona:"norte"  },
-    { id:"ofelia",  name:"La Ofelia",           lat:-0.1100, lng:-78.4900, zona:"norte"  },
-    { id:"coton",   name:"Cotocollao",          lat:-0.1200, lng:-78.5000, zona:"norte"  },
-    { id:"carol",   name:"La Carolina",         lat:-0.1828, lng:-78.4862, zona:"norte"  },
-    { id:"uce",     name:"Univ. Central",       lat:-0.2102, lng:-78.5094, zona:"centro" },
-    { id:"marin",   name:"Marín",               lat:-0.2232, lng:-78.5120, zona:"centro" },
-    { id:"ejido",   name:"El Ejido",            lat:-0.2050, lng:-78.5030, zona:"centro" },
-    { id:"quitum",  name:"Quitumbe",            lat:-0.3148, lng:-78.5551, zona:"sur"    },
-    { id:"solanda", name:"Solanda",             lat:-0.2750, lng:-78.5350, zona:"sur"    },
+    { id:"carc",    name:"Carcelén",          lat:-0.0779, lng:-78.4792, zona:"norte"  },
+    { id:"comu",    name:"Comité del Pueblo", lat:-0.0950, lng:-78.4770, zona:"norte"  },
+    { id:"ofelia",  name:"La Ofelia",         lat:-0.1100, lng:-78.4900, zona:"norte"  },
+    { id:"coton",   name:"Cotocollao",        lat:-0.1200, lng:-78.5000, zona:"norte"  },
+    { id:"carol",   name:"La Carolina",       lat:-0.1828, lng:-78.4862, zona:"norte"  },
+    { id:"uce",     name:"Univ. Central",     lat:-0.2102, lng:-78.5094, zona:"centro" },
+    { id:"marin",   name:"Marín",             lat:-0.2232, lng:-78.5120, zona:"centro" },
+    { id:"ejido",   name:"El Ejido",          lat:-0.2050, lng:-78.5030, zona:"centro" },
+    { id:"quitum",  name:"Quitumbe",          lat:-0.3148, lng:-78.5551, zona:"sur"    },
+    { id:"solanda", name:"Solanda",           lat:-0.2750, lng:-78.5350, zona:"sur"    },
   ];
-
   SECTOR_BY_ID = {};
-  SECTORS.forEach(s => {
-    SECTOR_BY_ID[s.id]        = s;
-    SECTOR_BY_ID[Number(s.id)] = s;
-  });
-
+  SECTORS.forEach(s => { SECTOR_BY_ID[s.id] = s; SECTOR_BY_ID[Number(s.id)] = s; });
   ROUTES = [
-    { id:"r1", linea:"113", empresa:"CATAR",    color:"#FF6B2B", stops:["carc","comu","ofelia","coton","carol","uce","marin"], path: null },
-    { id:"r2", linea:"48",  empresa:"Quitumbe", color:"#FF5722", stops:["marin","ejido","solanda","quitum"], path: null },
+    { id:"r1", linea:"113", empresa:"CATAR",    color:"#FF6B2B", stops:["carc","comu","ofelia","coton","carol","uce","marin"], path:null },
+    { id:"r2", linea:"48",  empresa:"Quitumbe", color:"#FF5722", stops:["marin","ejido","solanda","quitum"], path:null },
   ];
-
   POPULAR_TRIPS = [
-    { from:"carc",  to:"marin",  label:"Carcelén → Marín" },
-    { from:"carol", to:"quitum", label:"La Carolina → Quitumbe" },
+    { from:"carc", to:"marin",  label:"Carcelén → Marín" },
+    { from:"carol",to:"quitum", label:"La Carolina → Quitumbe" },
   ];
-
   POPULAR_SECTORS = ["carc","carol","uce","marin","quitum","solanda"];
 }
 
 // ══════════════════════════════════════════════════════════
-//  MOTOR DE RUTAS
+//  MOTOR DE RUTAS POR PROXIMIDAD GEOGRÁFICA
+//  Recibe {lat, lng} en lugar de IDs de paradas
 // ══════════════════════════════════════════════════════════
-function findRoutes(originId, destId) {
-  if (!originId || !destId || originId === destId) return [];
 
-  originId = String(originId);
-  destId   = String(destId);
+// Radio máximo para considerar que un punto "cubre" un origen/destino
+const MAX_WALK_M = 600; // 600 metros caminando
+
+/**
+ * Encuentra paradas cercanas a un punto geográfico, ordenadas por distancia.
+ * @param {number} lat
+ * @param {number} lng
+ * @param {number} maxMetros
+ * @param {number} topN
+ * @returns {Array<{sector, distM}>}
+ */
+function paradasCercanas(lat, lng, maxMetros = MAX_WALK_M, topN = 5) {
+  return SECTORS
+    .map(s => ({ sector: s, distM: haversineM(lat, lng, s.lat, s.lng) }))
+    .filter(x => x.distM <= maxMetros)
+    .sort((a, b) => a.distM - b.distM)
+    .slice(0, topN);
+}
+
+/**
+ * Busca rutas entre dos puntos geográficos.
+ * Tolerante: busca paradas cercanas al origen y destino,
+ * luego encuentra rutas que pasen por ambos conjuntos.
+ *
+ * @param {{lat, lng}} origin
+ * @param {{lat, lng}} dest
+ * @returns {Array} resultados de rutas
+ */
+function findRoutesByCoords(origin, dest) {
+  if (!origin || !dest) return [];
+
+  // Paradas cercanas al origen y destino
+  let nearOrigin = paradasCercanas(origin.lat, origin.lng, MAX_WALK_M, 8);
+  let nearDest   = paradasCercanas(dest.lat, dest.lng, MAX_WALK_M, 8);
+
+  // Si no hay paradas en radio de 600m, ampliar a 1.2km
+  if (nearOrigin.length === 0) nearOrigin = paradasCercanas(origin.lat, origin.lng, 1200, 5);
+  if (nearDest.length   === 0) nearDest   = paradasCercanas(dest.lat, dest.lng, 1200, 5);
+
+  // Si sigue vacío, ampliar a 2km
+  if (nearOrigin.length === 0) nearOrigin = paradasCercanas(origin.lat, origin.lng, 2000, 3);
+  if (nearDest.length   === 0) nearDest   = paradasCercanas(dest.lat, dest.lng, 2000, 3);
+
+  if (nearOrigin.length === 0 || nearDest.length === 0) {
+    console.warn("⚠️ No se encontraron paradas cercanas al origen o destino");
+    return [];
+  }
+
+  const originIds = nearOrigin.map(x => x.sector.id);
+  const destIds   = nearDest.map(x => x.sector.id);
 
   const results = [];
   const seen    = new Set();
 
-  function distBetween(idA, idB) {
-    const a = SECTOR_BY_ID[idA], b = SECTOR_BY_ID[idB];
-    if (!a || !b) return 0;
-    return haversineKm(a.lat, a.lng, b.lat, b.lng);
-  }
-
-  function calcTime(stops) {
-    let km = 0;
-    for (let i = 0; i < stops.length - 1; i++) km += distBetween(stops[i], stops[i+1]);
-    return Math.max(4, Math.round(km / 20 * 60 + stops.length * 0.8));
-  }
-
   // ── 1. Rutas DIRECTAS ──────────────────────────────────
-  ROUTES.forEach(route => {
-    const si = route.stops.indexOf(originId);
-    const di = route.stops.indexOf(destId);
-    if (si === -1 || di === -1 || si === di) return;
+  for (const route of ROUTES) {
+    // Encontrar la parada de abordaje más cercana al origen
+    let bestBoardIdx = -1, bestBoardDist = Infinity;
+    for (const oid of originIds) {
+      const idx = route.stops.indexOf(oid);
+      if (idx === -1) continue;
+      const d = nearOrigin.find(x => x.sector.id === oid)?.distM ?? Infinity;
+      if (d < bestBoardDist) { bestBoardDist = d; bestBoardIdx = idx; }
+    }
+    if (bestBoardIdx === -1) continue;
 
-    const stopsInOrder = si < di
-      ? route.stops.slice(si, di + 1)
-      : [...route.stops.slice(di, si + 1)].reverse();
+    // Encontrar la parada de bajada más cercana al destino
+    let bestAlightIdx = -1, bestAlightDist = Infinity;
+    for (const did of destIds) {
+      const idx = route.stops.indexOf(did);
+      if (idx === -1) continue;
+      const d = nearDest.find(x => x.sector.id === did)?.distM ?? Infinity;
+      if (d < bestAlightDist) { bestAlightDist = d; bestAlightIdx = idx; }
+    }
+    if (bestAlightIdx === -1) continue;
+    if (bestBoardIdx === bestAlightIdx) continue;
 
-    const key = `D:${route.id}:${si}:${di}`;
-    if (seen.has(key)) return;
+    // Determinar sentido
+    let stops;
+    if (bestBoardIdx < bestAlightIdx) {
+      stops = route.stops.slice(bestBoardIdx, bestAlightIdx + 1);
+    } else {
+      stops = [...route.stops.slice(bestAlightIdx, bestBoardIdx + 1)].reverse();
+    }
+    if (stops.length < 2) continue;
+
+    const key = `D:${route.id}:${stops[0]}:${stops[stops.length - 1]}`;
+    if (seen.has(key)) continue;
     seen.add(key);
 
+    const walkOriginM = Math.round(bestBoardDist);
+    const walkDestM   = Math.round(bestAlightDist);
+    const walkMin     = Math.ceil((walkOriginM + walkDestM) / 80); // ~80m/min caminando
+
     results.push({
-      type:         "direct",
-      legs:         [{ route, from: originId, to: destId, stops: stopsInOrder }],
-      totalStops:   stopsInOrder.length - 1,
-      estimatedMin: route.estimatedMin || calcTime(stopsInOrder),
-      transfers:    0,
+      type:          "direct",
+      legs:          [{ route, from: stops[0], to: stops[stops.length - 1], stops }],
+      totalStops:    stops.length - 1,
+      estimatedMin:  (route.estimatedMin
+        ? Math.round(route.estimatedMin * stops.length / route.stops.length)
+        : calcTime(stops)) + walkMin,
+      transfers:     0,
+      walkOriginM,
+      walkDestM,
+      boardStop:     SECTOR_BY_ID[stops[0]],
+      alightStop:    SECTOR_BY_ID[stops[stops.length - 1]],
     });
-  });
+  }
 
   // ── 2. Rutas CON UN TRANSBORDO ─────────────────────────
-  ROUTES.forEach(r1 => {
-    const si1 = r1.stops.indexOf(originId);
-    if (si1 === -1) return;
+  for (const r1 of ROUTES) {
+    // Parada de abordaje en r1
+    let boardIdx1 = -1, boardDist1 = Infinity;
+    for (const oid of originIds) {
+      const idx = r1.stops.indexOf(oid);
+      if (idx === -1) continue;
+      const d = nearOrigin.find(x => x.sector.id === oid)?.distM ?? Infinity;
+      if (d < boardDist1) { boardDist1 = d; boardIdx1 = idx; }
+    }
+    if (boardIdx1 === -1) continue;
 
-    const afterOrigin = r1.stops.slice(si1 + 1);
+    const afterBoard1 = r1.stops.slice(boardIdx1 + 1);
 
-    ROUTES.forEach(r2 => {
-      if (r1.id === r2.id) return;
-      const di2 = r2.stops.indexOf(destId);
-      if (di2 === -1) return;
+    for (const r2 of ROUTES) {
+      if (r1.id === r2.id) continue;
 
-      for (const transferStop of afterOrigin) {
-        if (transferStop === originId || transferStop === destId) continue;
+      // Parada de bajada en r2
+      let alightIdx2 = -1, alightDist2 = Infinity;
+      for (const did of destIds) {
+        const idx = r2.stops.indexOf(did);
+        if (idx === -1) continue;
+        const d = nearDest.find(x => x.sector.id === did)?.distM ?? Infinity;
+        if (d < alightDist2) { alightDist2 = d; alightIdx2 = idx; }
+      }
+      if (alightIdx2 === -1) continue;
 
+      // Buscar parada de transbordo en común
+      for (const transferStop of afterBoard1) {
+        if (destIds.includes(transferStop)) continue;
         const ti2 = r2.stops.indexOf(transferStop);
         if (ti2 === -1) continue;
+        if (ti2 === alightIdx2) continue;
 
         const idx1 = r1.stops.indexOf(transferStop);
-        if (idx1 <= si1) continue;
+        if (idx1 <= boardIdx1) continue;
 
-        const leg1stops = r1.stops.slice(si1, idx1 + 1);
+        const leg1stops = r1.stops.slice(boardIdx1, idx1 + 1);
         if (leg1stops.length < 2) continue;
 
-        const leg2stops = ti2 < di2
-          ? r2.stops.slice(ti2, di2 + 1)
-          : [...r2.stops.slice(di2, ti2 + 1)].reverse();
-
+        let leg2stops;
+        if (ti2 < alightIdx2) {
+          leg2stops = r2.stops.slice(ti2, alightIdx2 + 1);
+        } else {
+          leg2stops = [...r2.stops.slice(alightIdx2, ti2 + 1)].reverse();
+        }
         if (leg2stops.length < 2) continue;
 
         const totalStops = leg1stops.length + leg2stops.length - 2;
-        if (totalStops < 1) continue;
+        if (totalStops < 2) continue;
 
         const key = `T:${r1.id}:${transferStop}:${r2.id}`;
         if (seen.has(key)) continue;
         seen.add(key);
 
+        const walkMin = Math.ceil((boardDist1 + alightDist2) / 80);
         const t1 = r1.estimatedMin
           ? Math.round(r1.estimatedMin * leg1stops.length / r1.stops.length)
           : calcTime(leg1stops);
@@ -433,20 +438,25 @@ function findRoutes(originId, destId) {
         results.push({
           type: "transfer",
           legs: [
-            { route: r1, from: originId,    to: transferStop, stops: leg1stops },
-            { route: r2, from: transferStop, to: destId,       stops: leg2stops },
+            { route: r1, from: leg1stops[0], to: transferStop, stops: leg1stops },
+            { route: r2, from: transferStop, to: leg2stops[leg2stops.length - 1], stops: leg2stops },
           ],
           totalStops,
           transferStop,
-          estimatedMin: t1 + t2 + 4,
+          estimatedMin: t1 + t2 + 4 + walkMin,
           transfers: 1,
+          walkOriginM: Math.round(boardDist1),
+          walkDestM:   Math.round(alightDist2),
+          boardStop:   SECTOR_BY_ID[leg1stops[0]],
+          alightStop:  SECTOR_BY_ID[leg2stops[leg2stops.length - 1]],
         });
 
-        break;
+        break; // un transbordo por par de rutas
       }
-    });
-  });
+    }
+  }
 
+  // Ordenar: primero directas, luego por tiempo estimado
   results.sort((a, b) => {
     if (a.type !== b.type) return a.type === "direct" ? -1 : 1;
     return a.estimatedMin - b.estimatedMin;
@@ -455,12 +465,32 @@ function findRoutes(originId, destId) {
   return results.slice(0, 15);
 }
 
-// ─── Haversine ────────────────────────────────────────────
+// Mantener findRoutes por compatibilidad (algunos sitios del código lo usan con IDs)
+function findRoutes(originId, destId) {
+  const o = SECTOR_BY_ID[originId] || SECTOR_BY_ID[String(originId)];
+  const d = SECTOR_BY_ID[destId]   || SECTOR_BY_ID[String(destId)];
+  if (!o || !d) return [];
+  return findRoutesByCoords({ lat: o.lat, lng: o.lng }, { lat: d.lat, lng: d.lng });
+}
+
+function calcTime(stops) {
+  let km = 0;
+  for (let i = 0; i < stops.length - 1; i++) {
+    const a = SECTOR_BY_ID[stops[i]], b = SECTOR_BY_ID[stops[i+1]];
+    if (a && b) km += haversineKm(a.lat, a.lng, b.lat, b.lng);
+  }
+  return Math.max(4, Math.round(km / 20 * 60 + stops.length * 0.8));
+}
+
 function haversineKm(lat1, lng1, lat2, lng2) {
   const R = 6371, r = Math.PI / 180;
   const dLat = (lat2 - lat1) * r, dLng = (lng2 - lng1) * r;
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*r)*Math.cos(lat2*r)*Math.sin(dLng/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function haversineM(lat1, lng1, lat2, lng2) {
+  return haversineKm(lat1, lng1, lat2, lng2) * 1000;
 }
 
 // ─── Tips por zona ────────────────────────────────────────
@@ -486,7 +516,7 @@ const ROUTE_TIPS = {
 const SupabaseAuth = {
   async register({ nombre, apellido, cedula, correo, password }) {
     const hash = await hashPassword(password);
-    const res  = await fetch(`${SUPABASE_URL}/rest/v1/usuarios`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/usuarios`, {
       method: "POST",
       headers: {
         "apikey": SUPABASE_ANON, "Authorization": `Bearer ${SUPABASE_ANON}`,
@@ -507,7 +537,7 @@ const SupabaseAuth = {
 
   async login({ correo, password }) {
     const hash = await hashPassword(password);
-    const res  = await fetch(
+    const res = await fetch(
       `${SUPABASE_URL}/rest/v1/usuarios?correo=eq.${encodeURIComponent(correo)}&password_hash=eq.${encodeURIComponent(hash)}&select=id_usuario,nombre,apellido,correo`,
       { headers: { "apikey": SUPABASE_ANON, "Authorization": `Bearer ${SUPABASE_ANON}` } }
     );
@@ -518,7 +548,7 @@ const SupabaseAuth = {
 };
 
 async function hashPassword(password) {
-  const buf  = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(password));
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(password));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
 }
 
@@ -540,9 +570,7 @@ async function initData() {
         <rect x="9" y="17" width="7" height="5" rx="1" fill="#ADE0FF"/>
         <rect x="18" y="17" width="7" height="5" rx="1" fill="#ADE0FF"/>
       </svg>
-      <div style="color:white;font-weight:700;font-size:1.1rem;" id="load-msg">
-        Cargando rutas de Quito…
-      </div>
+      <div style="color:white;font-weight:700;font-size:1.1rem;">Cargando rutas de Quito…</div>
       <div style="width:220px;height:5px;background:rgba(255,255,255,.15);border-radius:5px;overflow:hidden;">
         <div id="load-bar" style="height:100%;background:#FF6B2B;border-radius:5px;width:0%;transition:width .5s ease;"></div>
       </div>
@@ -558,7 +586,7 @@ async function initData() {
 
   if (bar) bar.style.width = "100%";
   if (sub) sub.textContent = ok
-    ? `✅ ${SECTORS.length} paradas · ${ROUTES.length} rutas`
+    ? `✅ ${SECTORS.length} paradas · ${ROUTES.length} rutas listas`
     : `⚠️ Usando datos de demostración (${SECTORS.length} paradas)`;
 
   await new Promise(r => setTimeout(r, 600));
