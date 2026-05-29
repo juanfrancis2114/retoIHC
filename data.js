@@ -1,11 +1,5 @@
 /* ══════════════════════════════════════
-   BusQuito – data.js  (v5 – FIXES RUTAS)
-   
-   FIXES:
-   1. fetchAllPages: extraParams sin doble-encode
-   2. Rutas: usa fetchAllPages en vez de SBQuery
-   3. Fallback: si activa=eq.true falla, filtra en JS
-   4. SECTOR_BY_ID indexado por string Y número
+   BusQuito – data.js  (v6 – coordenadas JSONB + paradas sintéticas)
    ══════════════════════════════════════ */
 
 const SUPABASE_URL  = "https://vedsmsrvllugtztyczxe.supabase.co";
@@ -31,9 +25,23 @@ function inferZona(lat) {
   return "centro";
 }
 
+// ─── Aplanar coordenadas de segmentos ─────────────────────
+// La API devuelve [[seg1], [seg2], ...] donde cada seg es [[lat,lng],...]
+function aplanarCoordenadas(coords) {
+  if (!Array.isArray(coords) || coords.length === 0) return [];
+  // Detectar si es array de segmentos: coords[0][0] es array
+  const esSegmentos = Array.isArray(coords[0]) && Array.isArray(coords[0][0]);
+  const puntos = esSegmentos ? coords.flat() : coords;
+  // Filtrar puntos válidos en Ecuador y retornar como [lat, lng]
+  return puntos.filter(p =>
+    Array.isArray(p) && p.length >= 2 &&
+    p[0] > -6 && p[0] < 2 &&
+    p[1] > -82 && p[1] < -75
+  );
+}
+
 // ══════════════════════════════════════════════════════════
-//  PAGINACIÓN — extraParams sin doble encodeURIComponent
-//  Los valores ya vienen en formato PostgREST: "eq.true", "asc"
+//  PAGINACIÓN
 // ══════════════════════════════════════════════════════════
 async function fetchAllPages(table, selectCols, extraParams = {}) {
   const pageSize = 1000;
@@ -44,7 +52,6 @@ async function fetchAllPages(table, selectCols, extraParams = {}) {
   while (true) {
     const qsParts = [`select=${encodeURIComponent(selectCols)}`];
     Object.entries(extraParams).forEach(([k, v]) => {
-      // NO doble-encodear: v ya es valor PostgREST (ej: "eq.true", "orden_parada.asc")
       qsParts.push(`${k}=${v}`);
     });
     const url = `${SUPABASE_URL}/rest/v1/${table}?${qsParts.join("&")}`;
@@ -66,7 +73,6 @@ async function fetchAllPages(table, selectCols, extraParams = {}) {
     if (!res.ok) {
       const body = await res.text();
       console.error(`❌ fetchAllPages error ${res.status} en "${table}":`, body);
-      // Si falla con filtros, reintentar sin ellos
       if (Object.keys(extraParams).length > 0) {
         console.warn(`⚠️ Reintentando "${table}" sin filtros extra…`);
         return fetchAllPages(table, selectCols, {});
@@ -129,7 +135,7 @@ async function loadDataFromSupabase() {
     );
 
     if (!rawParadas || rawParadas.length === 0) {
-      throw new Error("Sin paradas en Supabase — verifica RLS y permisos anon");
+      throw new Error("Sin paradas en Supabase");
     }
     console.log(`✅ Paradas cargadas: ${rawParadas.length}`);
 
@@ -141,48 +147,32 @@ async function loadDataFromSupabase() {
       zona: inferZona(parseFloat(p.latitud)),
     })).filter(s => !isNaN(s.lat) && !isNaN(s.lng));
 
-    // FIX: indexar por string Y por número para evitar mismatches de tipo
     SECTOR_BY_ID = {};
     SECTORS.forEach(s => {
-      SECTOR_BY_ID[s.id]        = s;   // "123" → sector
-      SECTOR_BY_ID[Number(s.id)] = s;  // 123   → sector
+      SECTOR_BY_ID[s.id]         = s;
+      SECTOR_BY_ID[Number(s.id)] = s;
     });
     console.log(`✅ SECTOR_BY_ID construido con ${SECTORS.length} entradas`);
 
-    // ── 2. Rutas — ahora con fetchAllPages en vez de SBQuery ──
+    // ── 2. Rutas (con coordenadas JSONB) ───────────────────
     console.log("🔄 Cargando rutas…");
-
-    // Intentar primero con filtro activa=true
     let rawRutas = await fetchAllPages(
       "rutas",
-      "id_ruta,nombre,cooperativa,color,codigo,tiempo_estimado,activa",
+      "id_ruta,nombre,cooperativa,color,codigo,tiempo_estimado,activa,coordenadas",
       { "activa": "eq.true" }
     );
 
-    // Si no trajo nada con el filtro, traer todas y filtrar en JS
     if (!rawRutas || rawRutas.length === 0) {
-      console.warn("⚠️ Sin rutas con activa=eq.true, cargando todas y filtrando en JS…");
+      console.warn("⚠️ Sin rutas con activa=true, cargando todas…");
       rawRutas = await fetchAllPages(
         "rutas",
-        "id_ruta,nombre,cooperativa,color,codigo,tiempo_estimado,activa"
+        "id_ruta,nombre,cooperativa,color,codigo,tiempo_estimado,activa,coordenadas"
       );
       rawRutas = rawRutas.filter(r => r.activa !== false);
-      console.log(`⚠️ Rutas tras filtrar en JS: ${rawRutas.length}`);
-    }
-
-    // Si todavía no hay rutas, intentar sin columna codigo (por si no existe)
-    if (!rawRutas || rawRutas.length === 0) {
-      console.warn("⚠️ Reintentando rutas sin columna 'codigo'…");
-      rawRutas = await fetchAllPages(
-        "rutas",
-        "id_ruta,nombre,cooperativa,color,tiempo_estimado,activa"
-      );
-      rawRutas = rawRutas.filter(r => r.activa !== false);
-      console.log(`⚠️ Rutas (sin codigo) tras filtrar en JS: ${rawRutas.length}`);
     }
 
     if (!rawRutas || rawRutas.length === 0) {
-      throw new Error("Sin rutas en Supabase — verifica RLS y que activa=true en alguna ruta");
+      throw new Error("Sin rutas en Supabase");
     }
     console.log(`✅ Rutas cargadas desde BD: ${rawRutas.length}`);
 
@@ -206,25 +196,19 @@ async function loadDataFromSupabase() {
       });
     });
 
-    // Diagnóstico
-    let paradasNoEncontradas = 0;
-    let paradasEncontradas   = 0;
     let rutasDescartadas     = 0;
+    let paradasNoEncontradas = 0;
+    let rutasConPath         = 0;
 
     ROUTES = rawRutas.map(r => {
       const grupo   = paradasPorRuta[String(r.id_ruta)] || [];
       const paradas = grupo
         .sort((a, b) => a.orden - b.orden)
         .map(p => {
-          // FIX: buscar por string Y por número
           const found = SECTOR_BY_ID[p.id] || SECTOR_BY_ID[Number(p.id)];
-          if (found) {
-            paradasEncontradas++;
-            return found.id; // siempre retornar el id como string canónico
-          } else {
-            paradasNoEncontradas++;
-            return null;
-          }
+          if (found) return found.id;
+          paradasNoEncontradas++;
+          return null;
         })
         .filter(Boolean);
 
@@ -235,6 +219,16 @@ async function loadDataFromSupabase() {
 
       const linea = (r.codigo || r.nombre || String(r.id_ruta)).trim();
 
+      // Procesar coordenadas JSONB para el mapa
+      let path = null;
+      if (Array.isArray(r.coordenadas) && r.coordenadas.length > 0) {
+        const puntos = aplanarCoordenadas(r.coordenadas);
+        if (puntos.length >= 2) {
+          path = puntos; // ya en formato [lat, lng]
+          rutasConPath++;
+        }
+      }
+
       return {
         id:           `r${r.id_ruta}`,
         _dbId:        r.id_ruta,
@@ -243,65 +237,13 @@ async function loadDataFromSupabase() {
         color:        r.color || randomRouteColor(r.id_ruta),
         stops:        paradas,
         estimatedMin: r.tiempo_estimado || null,
-        path:         null,
+        path,
       };
     }).filter(Boolean);
 
     console.log(`✅ Rutas construidas: ${ROUTES.length}`);
-    if (rutasDescartadas > 0)
-      console.warn(`⚠️ ${rutasDescartadas} rutas descartadas por <2 paradas válidas`);
-    if (paradasNoEncontradas > 0)
-      console.warn(`⚠️ ${paradasNoEncontradas} paradas en ruta_paradas sin match en SECTOR_BY_ID`);
-
-    const pctMissing = rawRP.length > 0
-      ? Math.round(paradasNoEncontradas / rawRP.length * 100)
-      : 0;
-    if (pctMissing > 10) {
-      console.error(
-        `🚨 ${pctMissing}% de ruta_paradas sin match. ` +
-        `BD tiene ${rawParadas.length} paradas. Muestra de IDs en ruta_paradas:`,
-        rawRP.slice(0, 3).map(r => r.id_parada),
-        `Muestra de IDs en SECTOR_BY_ID:`,
-        Object.keys(SECTOR_BY_ID).slice(0, 3)
-      );
-    }
-
-    // ── 4. Coordenadas de ruta ─────────────────────────────
-    console.log("🔄 Cargando coordenadas_ruta…");
-    const rawCoords = await fetchAllPages(
-      "coordenadas_ruta",
-      "id_ruta,latitud,longitud,orden_coordenada",
-      { "order": "orden_coordenada.asc" }
-    );
-    console.log(`✅ Coordenadas GPS cargadas: ${rawCoords.length}`);
-
-    if (rawCoords.length > 0) {
-      const coordsPorRuta = {};
-      rawCoords.forEach(c => {
-        const rid = String(c.id_ruta);
-        if (!coordsPorRuta[rid]) coordsPorRuta[rid] = [];
-        coordsPorRuta[rid].push({
-          lat:   parseFloat(c.latitud),
-          lng:   parseFloat(c.longitud),
-          orden: c.orden_coordenada,
-        });
-      });
-
-      let rutasConPath = 0;
-      ROUTES.forEach(route => {
-        const rid    = String(route._dbId);
-        const puntos = coordsPorRuta[rid];
-        if (puntos && puntos.length > 1) {
-          route.path = puntos
-            .sort((a, b) => a.orden - b.orden)
-            .map(p => [p.lat, p.lng]);
-          rutasConPath++;
-        }
-      });
-      console.log(`✅ ${rutasConPath} rutas con trayectoria GPS real`);
-    } else {
-      console.warn("⚠️ coordenadas_ruta vacía — mapas con líneas rectas entre paradas");
-    }
+    if (rutasDescartadas    > 0) console.warn(`⚠️ ${rutasDescartadas} rutas descartadas por <2 paradas`);
+    if (paradasNoEncontradas > 0) console.warn(`⚠️ ${paradasNoEncontradas} paradas sin match`);
 
     buildPopularData();
 
@@ -309,27 +251,22 @@ async function loadDataFromSupabase() {
       `\n🚌 BusQuito listo:\n` +
       `   Paradas : ${SECTORS.length}\n` +
       `   Rutas   : ${ROUTES.length}\n` +
-      `   Con GPS : ${ROUTES.filter(r => r.path).length}`
+      `   Con GPS : ${rutasConPath}`
     );
 
-    // Test del motor de búsqueda
+    // Test del motor
     if (ROUTES.length > 0) {
       const r0 = ROUTES[0];
       const testO = r0.stops[0];
       const testD = r0.stops[r0.stops.length - 1];
       const testResults = findRoutes(testO, testD);
-      console.log(`🔍 Test findRoutes(${testO} → ${testD}): ${testResults.length} resultados`);
-      if (testResults.length === 0) {
-        console.error("🚨 findRoutes retorna 0 en ruta conocida");
-        console.log("   Stops de r0:", r0.stops.slice(0, 5));
-        console.log("   Keys SECTOR_BY_ID:", Object.keys(SECTOR_BY_ID).slice(0, 5));
-      }
+      console.log(`🔍 Test findRoutes: ${testResults.length} resultados`);
     }
 
     return true;
 
   } catch (err) {
-    console.error("❌ Error cargando desde Supabase:", err.message, err);
+    console.error("❌ Error cargando desde Supabase:", err.message);
     loadFallbackData();
     return false;
   }
@@ -376,41 +313,11 @@ function loadFallbackData() {
     { id:"ofelia",  name:"La Ofelia",           lat:-0.1100, lng:-78.4900, zona:"norte"  },
     { id:"coton",   name:"Cotocollao",          lat:-0.1200, lng:-78.5000, zona:"norte"  },
     { id:"carol",   name:"La Carolina",         lat:-0.1828, lng:-78.4862, zona:"norte"  },
-    { id:"jipij",   name:"Jipijapa",            lat:-0.1700, lng:-78.4830, zona:"norte"  },
-    { id:"6dic",    name:"6 de Diciembre",      lat:-0.1900, lng:-78.4880, zona:"norte"  },
-    { id:"quito",   name:"El Quito",            lat:-0.1650, lng:-78.5050, zona:"norte"  },
-    { id:"belav",   name:"Bellavista",          lat:-0.1750, lng:-78.4970, zona:"norte"  },
-    { id:"rumin",   name:"Rumipamba",           lat:-0.1820, lng:-78.5020, zona:"norte"  },
     { id:"uce",     name:"Univ. Central",       lat:-0.2102, lng:-78.5094, zona:"centro" },
     { id:"marin",   name:"Marín",               lat:-0.2232, lng:-78.5120, zona:"centro" },
-    { id:"legar",   name:"La Gasca",            lat:-0.2000, lng:-78.5100, zona:"centro" },
     { id:"ejido",   name:"El Ejido",            lat:-0.2050, lng:-78.5030, zona:"centro" },
-    { id:"plaza",   name:"Plaza Grande",        lat:-0.2200, lng:-78.5130, zona:"centro" },
-    { id:"sanfr",   name:"San Francisco",       lat:-0.2240, lng:-78.5140, zona:"centro" },
-    { id:"laflo",   name:"La Floresta",         lat:-0.2100, lng:-78.4960, zona:"centro" },
-    { id:"gonza",   name:"González Suárez",     lat:-0.2150, lng:-78.4870, zona:"centro" },
-    { id:"inca",    name:"El Inca",             lat:-0.1985, lng:-78.4820, zona:"norte"  },
-    { id:"batall",  name:"Batallón Pichincha",  lat:-0.2050, lng:-78.5200, zona:"centro" },
-    { id:"sroke",   name:"San Roque",           lat:-0.2310, lng:-78.5180, zona:"centro" },
-    { id:"calcet",  name:"Calacalí (conexión)", lat:-0.2280, lng:-78.5220, zona:"centro" },
     { id:"quitum",  name:"Quitumbe",            lat:-0.3148, lng:-78.5551, zona:"sur"    },
-    { id:"chillo",  name:"Chillogallo",         lat:-0.2952, lng:-78.5350, zona:"sur"    },
     { id:"solanda", name:"Solanda",             lat:-0.2750, lng:-78.5350, zona:"sur"    },
-    { id:"turub",   name:"Turubamba",           lat:-0.3200, lng:-78.5450, zona:"sur"    },
-    { id:"guaman",  name:"Guamaní",             lat:-0.3350, lng:-78.5500, zona:"sur"    },
-    { id:"cdmex",   name:"Cdla. México",        lat:-0.2600, lng:-78.5250, zona:"sur"    },
-    { id:"laarg",   name:"La Argelia",          lat:-0.2700, lng:-78.5100, zona:"sur"    },
-    { id:"villag",  name:"Villa Gloria",        lat:-0.2550, lng:-78.5400, zona:"sur"    },
-    { id:"pormef",  name:"El Porvenirmef",      lat:-0.2800, lng:-78.5300, zona:"sur"    },
-    { id:"cbella",  name:"Ciudad Bel Bella",    lat:-0.2450, lng:-78.5300, zona:"sur"    },
-    { id:"portal",  name:"Portal Norte (Metrobús)", lat:-0.0810, lng:-78.4782, zona:"norte" },
-    { id:"ecovtq",  name:"Trole/Eco - Quitumbe",    lat:-0.3150, lng:-78.5560, zona:"sur"   },
-    { id:"cmagd",   name:"C. Comercial Magda",       lat:-0.1500, lng:-78.4950, zona:"norte" },
-    { id:"emed",    name:"El Mercado",               lat:-0.2180, lng:-78.5150, zona:"centro"},
-    { id:"ltung",   name:"La Tungurahua",            lat:-0.2420, lng:-78.5220, zona:"sur"   },
-    { id:"sanbar",  name:"San Bartolo",              lat:-0.2500, lng:-78.5280, zona:"sur"   },
-    { id:"catali",  name:"Santa Catalina",           lat:-0.2640, lng:-78.5310, zona:"sur"   },
-    { id:"mitad",   name:"Mitad del Mundo",          lat: 0.0022, lng:-78.4558, zona:"norte" },
   ];
 
   SECTOR_BY_ID = {};
@@ -420,31 +327,16 @@ function loadFallbackData() {
   });
 
   ROUTES = [
-    { id:"r1",  linea:"113",    empresa:"CATAR",        color:"#FF6B2B", stops:["carc","comu","ofelia","coton","carol","uce","marin"] },
-    { id:"r2",  linea:"67",     empresa:"Latina",       color:"#2196F3", stops:["marin","uce","ejido","laflo","gonza","6dic","carol"] },
-    { id:"r3",  linea:"48",     empresa:"Quitumbe",     color:"#FF5722", stops:["marin","plaza","sanfr","sroke","cdmex","solanda","chillo","quitum"] },
-    { id:"r4",  linea:"25",     empresa:"Servilujos",   color:"#4CAF50", stops:["portal","carc","comu","jipij","carol","ejido","uce","marin"] },
-    { id:"r5",  linea:"32",     empresa:"Cotocollao",   color:"#9C27B0", stops:["coton","quito","belav","rumin","uce","ejido","sanfr","plaza"] },
-    { id:"r6",  linea:"55",     empresa:"Turubamba",    color:"#E91E63", stops:["quitum","turub","guaman","solanda","chillo","villag","cbella","ltung","emed","marin"] },
-    { id:"r7",  linea:"78",     empresa:"Sur Express",  color:"#00BCD4", stops:["portal","inca","6dic","gonza","laflo","uce","batall","sroke","laarg","solanda","quitum"] },
-    { id:"r8",  linea:"83",     empresa:"Ecuador",      color:"#FF9800", stops:["mitad","carc","portal","comu","cmagd","carol","jipij","rumin","uce"] },
-    { id:"r9",  linea:"112",    empresa:"CATAR Norte",  color:"#3F51B5", stops:["carc","ofelia","coton","quito","belav","inca","6dic","carol","ejido"] },
-    { id:"r10", linea:"91",     empresa:"Villaflora",   color:"#795548", stops:["uce","ejido","laflo","gonza","inca","6dic","carol","jipij"] },
-    { id:"r11", linea:"24A",    empresa:"San Bartolo",  color:"#607D8B", stops:["marin","emed","ltung","sanbar","catali","cdmex","pormef","solanda","chillo"] },
-    { id:"r12", linea:"36",     empresa:"Río Coca",     color:"#8BC34A", stops:["carol","belav","rumin","ejido","uce","batall","calcet","sroke","cbella","sanbar"] },
-    { id:"r13", linea:"71",     empresa:"Oriental",     color:"#F44336", stops:["comu","coton","quito","belav","rumin","6dic","gonza","laflo","ejido","uce","marin","plaza"] },
-    { id:"r14", linea:"Ecovía", empresa:"EcovíaQ",      color:"#009688", stops:["portal","comu","ofelia","coton","carol","inca","ejido","uce","marin","ltung","sanbar","catali","solanda","quitum","ecovtq"] },
-    { id:"r15", linea:"Trole",  empresa:"Trolebús",     color:"#1A3A5C", stops:["portal","quito","belav","uce","ejido","marin","sroke","cdmex","solanda","chillo","quitum","ecovtq"] },
+    { id:"r1", linea:"113", empresa:"CATAR",    color:"#FF6B2B", stops:["carc","comu","ofelia","coton","carol","uce","marin"], path: null },
+    { id:"r2", linea:"48",  empresa:"Quitumbe", color:"#FF5722", stops:["marin","ejido","solanda","quitum"], path: null },
   ];
 
   POPULAR_TRIPS = [
-    { from:"carc",   to:"marin",   label:"Carcelén → Marín" },
-    { from:"carol",  to:"quitum",  label:"La Carolina → Quitumbe" },
-    { from:"uce",    to:"chillo",  label:"Univ. Central → Chillogallo" },
-    { from:"portal", to:"solanda", label:"Portal Norte → Solanda" },
+    { from:"carc",  to:"marin",  label:"Carcelén → Marín" },
+    { from:"carol", to:"quitum", label:"La Carolina → Quitumbe" },
   ];
 
-  POPULAR_SECTORS = ["carc","carol","uce","marin","quitum","solanda","portal","ejido","6dic","gonza"];
+  POPULAR_SECTORS = ["carc","carol","uce","marin","quitum","solanda"];
 }
 
 // ══════════════════════════════════════════════════════════
@@ -471,7 +363,7 @@ function findRoutes(originId, destId) {
     return Math.max(4, Math.round(km / 20 * 60 + stops.length * 0.8));
   }
 
-  // ── 1. Rutas DIRECTAS ────────────────────────────────
+  // ── 1. Rutas DIRECTAS ──────────────────────────────────
   ROUTES.forEach(route => {
     const si = route.stops.indexOf(originId);
     const di = route.stops.indexOf(destId);
@@ -494,7 +386,7 @@ function findRoutes(originId, destId) {
     });
   });
 
-  // ── 2. Rutas CON UN TRANSBORDO ───────────────────────
+  // ── 2. Rutas CON UN TRANSBORDO ─────────────────────────
   ROUTES.forEach(r1 => {
     const si1 = r1.stops.indexOf(originId);
     if (si1 === -1) return;
@@ -574,7 +466,7 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 // ─── Tips por zona ────────────────────────────────────────
 const ROUTE_TIPS = {
   norte: [
-    "🚌 En hora pico (7–9 AM y 5–7 PM) las rutas del norte suelen estar llenas. Considera salir un poco antes.",
+    "🚌 En hora pico (7–9 AM y 5–7 PM) las rutas del norte suelen estar llenas.",
     "💡 El Portal Norte del Metrobús conecta con múltiples líneas hacia el centro y sur.",
     "🔀 Desde Carcelén puedes tomar la Ecovía hasta Quitumbe sin transbordo.",
   ],
