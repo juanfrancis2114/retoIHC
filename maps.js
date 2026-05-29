@@ -1,19 +1,10 @@
 /* ══════════════════════════════════════
-   BusQuito – maps.js  (v5 – CORREGIDO)
-   
-   FIXES PRINCIPALES:
-   1. initResultsMap: invalidateSize() + setTimeout para que el
-      mapa se inicialice DESPUÉS de que el contenedor sea visible
-   2. fitBounds con padding correcto y fallback robusto
-   3. Marcadores de origen/destino siempre visibles
-   4. Panel de navegación (caminar + bus + caminar) mejorado
-   5. Geolocalización con reverseGeocode real
+   BusQuito – maps.js  (v6 – coordenadas JSONB)
    ══════════════════════════════════════ */
 
 const ORS_KEY  = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjQwNjZkYWNkOGNhNzQzMzRhNzU5MjcyOWM0OGNhNzIzIiwiaCI6Im11cm11cjY0In0=";
 const ORS_BASE = "https://api.openrouteservice.org/v2/directions/foot-walking";
 
-// Centro de Quito como fallback
 const QUITO_CENTER = [-0.2201, -78.5123];
 const QUITO_ZOOM   = 12;
 
@@ -115,14 +106,12 @@ async function geolocateField(field) {
 }
 
 // ══════════════════════════════════════════════════════════
-//  HELPER: crear mapa Leaflet de forma segura
-//  Siempre llama a invalidateSize() después de mostrar
+//  HELPER: crear mapa Leaflet
 // ══════════════════════════════════════════════════════════
 function createMap(containerId, options = {}) {
   const container = document.getElementById(containerId);
   if (!container) return null;
 
-  // Limpia instancia anterior si existe
   if (APP.maps[containerId]) {
     try { APP.maps[containerId].remove(); } catch(e) {}
     delete APP.maps[containerId];
@@ -139,26 +128,16 @@ function createMap(containerId, options = {}) {
   return m;
 }
 
-// FIX PRINCIPAL: fitBounds robusto con invalidateSize
 function safeFitBounds(map, points, padding = [40, 40]) {
   if (!map || !points || points.length === 0) return;
-
-  // Forzar recalculo de tamaño del contenedor
   map.invalidateSize({ animate: false });
-
-  if (points.length === 1) {
-    map.setView(points[0], 15);
-    return;
-  }
-
+  if (points.length === 1) { map.setView(points[0], 15); return; }
   try {
     const bounds = L.latLngBounds(points);
     if (bounds.isValid()) {
       map.fitBounds(bounds, { padding, maxZoom: 16, animate: false });
     }
   } catch(e) {
-    console.warn("fitBounds falló, usando centro manual:", e);
-    // Fallback: centro promedio
     const avgLat = points.reduce((s, p) => s + p[0], 0) / points.length;
     const avgLng = points.reduce((s, p) => s + p[1], 0) / points.length;
     map.setView([avgLat, avgLng], 13);
@@ -166,22 +145,53 @@ function safeFitBounds(map, points, padding = [40, 40]) {
 }
 
 // ══════════════════════════════════════════════════════════
+//  OBTENER COORDENADAS DEL PATH PARA EL MAPA
+//  Usa las coordenadas JSONB de la ruta si existen,
+//  si no, conecta paradas por línea recta
+// ══════════════════════════════════════════════════════════
+function getPathCoords(leg) {
+  const route = leg.route;
+
+  // Intentar usar path real de coordenadas JSONB
+  if (Array.isArray(route.path) && route.path.length >= 2) {
+    // path ya viene en formato [lat, lng] desde data.js
+    const coords = trimToLeg(route.path, leg);
+    if (coords.length >= 2) return coords;
+  }
+
+  // Fallback: línea recta entre paradas
+  return leg.stops
+    .map(id => SECTOR_BY_ID[id])
+    .filter(Boolean)
+    .map(s => [s.lat, s.lng]);
+}
+
+function trimToLeg(path, leg) {
+  const from = SECTOR_BY_ID[leg.stops[0]];
+  const to   = SECTOR_BY_ID[leg.stops[leg.stops.length - 1]];
+  if (!from || !to) return path;
+
+  let si = 0, ei = path.length - 1, ds = Infinity, de = Infinity;
+  path.forEach(([lat, lng], i) => {
+    const d1 = haversineM(lat, lng, from.lat, from.lng);
+    const d2 = haversineM(lat, lng, to.lat,   to.lng);
+    if (d1 < ds) { ds = d1; si = i; }
+    if (d2 < de) { de = d2; ei = i; }
+  });
+  if (si > ei) [si, ei] = [ei, si];
+  const slice = path.slice(si, ei + 1);
+  return slice.length >= 2 ? slice : path;
+}
+
+// ══════════════════════════════════════════════════════════
 //  1. MAPA DE RESULTADOS
-//  FIX: se llama con setTimeout para esperar render del DOM
 // ══════════════════════════════════════════════════════════
 function initResultsMap() {
-  // Limpiar mapa anterior
   if (APP.maps["results-map"]) {
     try { APP.maps["results-map"].remove(); } catch(e) {}
     delete APP.maps["results-map"];
   }
-
-  // CRÍTICO: esperar a que la pantalla sea visible antes de crear el mapa
-  requestAnimationFrame(() => {
-    setTimeout(() => {
-      _buildResultsMap();
-    }, 100);
-  });
+  requestAnimationFrame(() => setTimeout(() => _buildResultsMap(), 100));
 }
 
 function _buildResultsMap() {
@@ -195,7 +205,6 @@ function _buildResultsMap() {
 
   const allPoints = [];
 
-  // Trazar rutas
   APP.results.forEach((result, idx) => {
     const isFirst = idx === 0;
     result.legs.forEach(leg => {
@@ -213,32 +222,23 @@ function _buildResultsMap() {
     });
   });
 
-  // Marcadores de origen y destino
   if (oLL) { addPinMarker(m, oLL, o?.name || "Origen",  "#27AE60"); allPoints.push(oLL); }
   if (dLL) { addPinMarker(m, dLL, d?.name || "Destino", "#FF6B2B"); allPoints.push(dLL); }
 
-  // Si no hay puntos, usar el centro de Quito
-  if (allPoints.length === 0) {
-    m.setView(QUITO_CENTER, QUITO_ZOOM);
-    return;
-  }
-
+  if (allPoints.length === 0) { m.setView(QUITO_CENTER, QUITO_ZOOM); return; }
   safeFitBounds(m, allPoints, [40, 40]);
 }
 
 // ══════════════════════════════════════════════════════════
-//  2. MAPA DE DETALLE — estilo navegación paso a paso
+//  2. MAPA DE DETALLE
 // ══════════════════════════════════════════════════════════
 async function initDetailMap(result) {
-  // Limpiar anterior
   if (APP.maps["detail-map"]) {
     try { APP.maps["detail-map"].remove(); } catch(e) {}
     delete APP.maps["detail-map"];
   }
 
   reorganizeDetailLayout();
-
-  // Esperar a que el DOM esté listo
   await new Promise(r => requestAnimationFrame(() => setTimeout(r, 80)));
 
   const m = createMap("detail-map");
@@ -247,26 +247,24 @@ async function initDetailMap(result) {
   const oLL = APP.originLatLng || coordsOf(APP.origin);
   const dLL = APP.destLatLng   || coordsOf(APP.dest);
 
-  const firstLeg = result.legs[0];
-  const lastLeg  = result.legs[result.legs.length - 1];
+  const firstLeg  = result.legs[0];
+  const lastLeg   = result.legs[result.legs.length - 1];
   const firstStop = SECTOR_BY_ID[firstLeg.stops[0]];
   const lastStop  = SECTOR_BY_ID[lastLeg.stops[lastLeg.stops.length - 1]];
 
   const allPoints = [];
   const navSteps  = [];
 
-  // ── Segmento caminata inicio ──────────────────────────
+  // Caminata inicio
   if (oLL && firstStop) {
     const walk = await getWalkPath(oLL, [firstStop.lat, firstStop.lng]);
     allPoints.push(...walk.coords);
-
     if (walk.coords.length > 1) {
       L.polyline(walk.coords, {
         color: "#27AE60", weight: 4, opacity: 0.9,
         dashArray: "10 7", lineJoin: "round",
       }).addTo(m).bindTooltip(`🚶 Caminar al paradero (${walk.distText})`, { sticky: true });
     }
-
     navSteps.push({
       icon: "🚶", color: "#27AE60",
       title: `Camina ${walk.distText} hasta el paradero`,
@@ -275,12 +273,12 @@ async function initDetailMap(result) {
     });
   }
 
-  // ── Segmentos de bus ──────────────────────────────────
+  // Segmentos de bus
   result.legs.forEach((leg, li) => {
-    const coords    = getPathCoords(leg);
-    const fromStop  = SECTOR_BY_ID[leg.stops[0]];
-    const toStop    = SECTOR_BY_ID[leg.stops[leg.stops.length - 1]];
-    const nParadas  = leg.stops.length - 1;
+    const coords   = getPathCoords(leg);
+    const fromStop = SECTOR_BY_ID[leg.stops[0]];
+    const toStop   = SECTOR_BY_ID[leg.stops[leg.stops.length - 1]];
+    const nParadas = leg.stops.length - 1;
 
     allPoints.push(...coords);
 
@@ -295,7 +293,7 @@ async function initDetailMap(result) {
       );
     }
 
-    // Dots en paradas intermedias (solo primeras/últimas para no saturar)
+    // Dots en paradas
     leg.stops.forEach((id, i) => {
       const s = SECTOR_BY_ID[id];
       if (!s) return;
@@ -316,7 +314,6 @@ async function initDetailMap(result) {
       time: `~${Math.max(3, nParadas * 3)} min`,
     });
 
-    // Transbordo
     if (li < result.legs.length - 1 && toStop) {
       addTransferMarker(m, toStop);
       navSteps.push({
@@ -328,18 +325,16 @@ async function initDetailMap(result) {
     }
   });
 
-  // ── Segmento caminata final ───────────────────────────
+  // Caminata final
   if (dLL && lastStop) {
     const walk2 = await getWalkPath([lastStop.lat, lastStop.lng], dLL);
     allPoints.push(...walk2.coords);
-
     if (walk2.coords.length > 1) {
       L.polyline(walk2.coords, {
         color: "#FF6B2B", weight: 4, opacity: 0.9,
         dashArray: "10 7", lineJoin: "round",
       }).addTo(m).bindTooltip(`🚶 Caminar al destino (${walk2.distText})`, { sticky: true });
     }
-
     navSteps.push({
       icon: "🏁", color: "#FF6B2B",
       title: `Camina ${walk2.distText} hasta tu destino`,
@@ -348,20 +343,10 @@ async function initDetailMap(result) {
     });
   }
 
-  // ── Pins de inicio / fin ──────────────────────────────
-  if (oLL) {
-    addPinMarker(m, oLL, SECTOR_BY_ID[APP.origin]?.name || "Inicio", "#27AE60");
-    allPoints.push(oLL);
-  }
-  if (dLL) {
-    addPinMarker(m, dLL, SECTOR_BY_ID[APP.dest]?.name || "Destino", "#FF6B2B");
-    allPoints.push(dLL);
-  }
+  if (oLL) { addPinMarker(m, oLL, SECTOR_BY_ID[APP.origin]?.name || "Inicio", "#27AE60"); allPoints.push(oLL); }
+  if (dLL) { addPinMarker(m, dLL, SECTOR_BY_ID[APP.dest]?.name   || "Destino", "#FF6B2B"); allPoints.push(dLL); }
 
-  // ── fitBounds ─────────────────────────────────────────
   safeFitBounds(m, allPoints, [50, 50]);
-
-  // ── Panel de navegación ───────────────────────────────
   renderNavPanel(navSteps, result);
 }
 
@@ -371,16 +356,13 @@ function reorganizeDetailLayout() {
   if (!screenDetail || screenDetail.dataset.layoutDone) return;
   screenDetail.dataset.layoutDone = "1";
 
-  const layout     = screenDetail.querySelector(".detail-layout");
-  const sidebar    = screenDetail.querySelector(".detail-sidebar");
-  const detailMap  = document.getElementById("detail-map");
+  const layout    = screenDetail.querySelector(".detail-layout");
+  const sidebar   = screenDetail.querySelector(".detail-sidebar");
+  const detailMap = document.getElementById("detail-map");
   const detailInfo = document.getElementById("detail-info");
   const detailTips = document.getElementById("detail-tips");
 
   if (!sidebar || !layout) return;
-
-  // ← ELIMINA las líneas que fuerzan gridTemplateColumns: "1fr"
-  // Dejar el grid como está en CSS (dos columnas)
 
   const mapBlock = document.createElement("div");
   mapBlock.id = "detail-map-block";
@@ -397,26 +379,16 @@ function reorganizeDetailLayout() {
   const legend = document.createElement("div");
   legend.className = "detail-map-legend";
   legend.innerHTML = `
-    <div class="dml-item">
-      <div style="width:24px;border-top:3px dashed #27AE60;opacity:.8"></div>
-      A pie (inicio)
-    </div>
-    <div class="dml-item">
-      <div class="dml-line" style="background:#2A5F9E"></div>
-      Recorrido del bus
-    </div>
-    <div class="dml-item">
-      <div style="width:24px;border-top:3px dashed #FF6B2B;opacity:.8"></div>
-      A pie (final)
-    </div>`;
+    <div class="dml-item"><div style="width:24px;border-top:3px dashed #27AE60;opacity:.8"></div>A pie (inicio)</div>
+    <div class="dml-item"><div class="dml-line" style="background:#2A5F9E"></div>Recorrido del bus</div>
+    <div class="dml-item"><div style="width:24px;border-top:3px dashed #FF6B2B;opacity:.8"></div>A pie (final)</div>`;
   mapBlock.appendChild(legend);
 
   if (detailTips) mapBlock.appendChild(detailTips);
-
-  sidebar.replaceWith(mapBlock);  // ← sidebar derecho = mapa
+  sidebar.replaceWith(mapBlock);
 }
 
-// ── Panel de navegación tipo Google Maps ──────────────────
+// ── Panel de navegación ───────────────────────────────────
 function renderNavPanel(steps, result) {
   const panel = document.getElementById("nav-panel");
   if (!panel) return;
@@ -435,9 +407,7 @@ function renderNavPanel(steps, result) {
     <div class="np-steps">
       ${steps.map((s, i) => `
         <div class="np-step">
-          <div class="np-step-icon" style="background:${s.color}20;border-color:${s.color}">
-            ${s.icon}
-          </div>
+          <div class="np-step-icon" style="background:${s.color}20;border-color:${s.color}">${s.icon}</div>
           <div class="np-step-body">
             <div class="np-step-title">${s.title}</div>
             <div class="np-step-sub">${s.sub}</div>
@@ -500,7 +470,6 @@ function openMapPicker(mode) {
     addTiles(map);
     map.invalidateSize();
 
-    // Botón mi ubicación dentro del modal
     const geoCtrl = L.control({ position: "topright" });
     geoCtrl.onAdd = () => {
       const div = L.DomUtil.create("div");
@@ -523,8 +492,12 @@ function openMapPicker(mode) {
     };
     geoCtrl.addTo(map);
 
-    // Paradas
-    SECTORS.forEach(sector => {
+    // Solo mostrar paradas con nombre real (no sintéticas) en el picker
+    const paradasVisibles = SECTORS.filter(s =>
+      s.name !== "Parada" && s.name !== "Parada sintética" && s.name !== "Parada oficial"
+    );
+
+    paradasVisibles.forEach(sector => {
       const isSel = sector.id === pickerState.selectedId;
       const icon  = L.divIcon({
         className: "",
@@ -543,7 +516,6 @@ function openMapPicker(mode) {
 
     map.on("click", e => selectFreePoint(e.latlng.lat, e.latlng.lng, map));
 
-    // Centrar en selección previa
     if (pickerState.selectedId) {
       const s = SECTOR_BY_ID[pickerState.selectedId];
       if (s) map.setView([s.lat, s.lng], 14);
@@ -552,8 +524,8 @@ function openMapPicker(mode) {
 }
 
 function selectPickerStop(sector, map) {
-  pickerState.selectedId = sector.id;
-  pickerState.freeLatLng = null;
+  pickerState.selectedId   = sector.id;
+  pickerState.freeLatLng   = null;
   pickerState._freeAddress = null;
   if (pickerState.freeMarker)   { pickerState.freeMarker.remove();   pickerState.freeMarker   = null; }
   if (pickerState._nearestLine) { pickerState._nearestLine.remove(); pickerState._nearestLine = null; }
@@ -608,7 +580,6 @@ function selectFreePoint(lat, lng, map) {
   const dist = nearest ? Math.round(haversineM(lat, lng, nearest.lat, nearest.lng)) : null;
   showToast(nearest ? `Paradero más cercano: ${nearest.name} (${dist} m)` : "Punto seleccionado");
 
-  // Geocodificación asíncrona
   reverseGeocode(lat, lng).then(addr => {
     pickerState._freeAddress = addr;
     updatePickerDisplay(nearest?.id || null, [lat, lng], addr);
@@ -713,57 +684,14 @@ function coordsOf(id) {
   return s ? [s.lat, s.lng] : null;
 }
 
-function getPathCoords(leg) {
-  const route = leg.route;
-  let coords = [];
-
-  // Intentar usar path vectorial si existe
-  if (Array.isArray(route.path) && route.path.length > 1) {
-    const sample   = route.path[0];
-    if (Array.isArray(sample) && sample.length >= 2) {
-      const isGeoJSON = Math.abs(sample[0]) > 1;
-      const all       = route.path.map(p => isGeoJSON ? [p[1], p[0]] : [p[0], p[1]]);
-      coords = trimToLeg(all, leg);
-    }
-  }
-
-  // Fallback: conectar paradas por línea recta
-  if (coords.length < 2) {
-    coords = leg.stops
-      .map(id => SECTOR_BY_ID[id])
-      .filter(Boolean)
-      .map(s => [s.lat, s.lng]);
-  }
-
-  return coords;
-}
-
-function trimToLeg(path, leg) {
-  const from = SECTOR_BY_ID[leg.stops[0]];
-  const to   = SECTOR_BY_ID[leg.stops[leg.stops.length - 1]];
-  if (!from || !to) return path;
-
-  let si = 0, ei = path.length - 1, ds = Infinity, de = Infinity;
-  path.forEach(([lat, lng], i) => {
-    const d1 = haversineM(lat, lng, from.lat, from.lng);
-    const d2 = haversineM(lat, lng, to.lat, to.lng);
-    if (d1 < ds) { ds = d1; si = i; }
-    if (d2 < de) { de = d2; ei = i; }
-  });
-  if (si > ei) [si, ei] = [ei, si];
-  const slice = path.slice(si, ei + 1);
-  return slice.length > 1 ? slice : path;
-}
-
 async function getWalkPath(from, to) {
   const distM = haversineM(from[0], from[1], to[0], to[1]);
   const fallback = {
     coords:   [from, to],
     distText: distM < 1000 ? `${Math.round(distM)} m` : `${(distM/1000).toFixed(1)} km`,
-    timeText: `~${Math.ceil(distM / 83)} min`, // ~5 km/h caminando
+    timeText: `~${Math.ceil(distM / 83)} min`,
   };
 
-  // Si la distancia es muy corta (<50 m) o muy larga (>3 km a pie), no pedir ORS
   if (distM < 50 || distM > 3000) return fallback;
 
   try {
@@ -778,9 +706,9 @@ async function getWalkPath(from, to) {
     const route = data?.routes?.[0];
     if (!route) return fallback;
 
-    const coords   = decodePolyline(route.geometry);
-    const d        = route.summary?.distance || distM;
-    const t        = route.summary?.duration || (distM / 83 * 60);
+    const coords = decodePolyline(route.geometry);
+    const d      = route.summary?.distance || distM;
+    const t      = route.summary?.duration || (distM / 83 * 60);
     return {
       coords:   coords.length > 1 ? coords : fallback.coords,
       distText: d < 1000 ? `${Math.round(d)} m` : `${(d/1000).toFixed(1)} km`,
@@ -836,7 +764,12 @@ function addTransferMarker(map, sector) {
 function findNearestSector(lat, lng) {
   if (!SECTORS.length) return null;
   let nearest = null, minD = Infinity;
-  SECTORS.forEach(s => {
+  // Priorizar paradas con nombre real sobre sintéticas
+  const conNombre = SECTORS.filter(s =>
+    s.name !== "Parada" && s.name !== "Parada sintética" && s.name !== "Parada oficial"
+  );
+  const pool = conNombre.length > 0 ? conNombre : SECTORS;
+  pool.forEach(s => {
     const d = haversineM(lat, lng, s.lat, s.lng);
     if (d < minD) { minD = d; nearest = s; }
   });
