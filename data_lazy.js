@@ -1,15 +1,15 @@
 /* ══════════════════════════════════════
-   BusQuito – data.js  (v7 – búsqueda por proximidad geográfica)
+   BusQuito – data_lazy.js  (v8 – carga perezosa + rutas lógicas)
+   ══════════════════════════════════════
+   CAMBIOS vs v7:
+   - NO carga Supabase al abrir la página
+   - Carga datos solo cuando el usuario presiona "Buscar rutas"
+   - findRoutesByCoords: máximo 5 resultados, transbordos solo si no hay directa,
+     y solo transbordos con sentido geográfico (no dar vueltas)
    ══════════════════════════════════════ */
 
 const SUPABASE_URL  = "https://vedsmsrvllugtztyczxe.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZlZHNtc3J2bGx1Z3R6dHljenhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1MjY4OTgsImV4cCI6MjA5NTEwMjg5OH0.wj2FT2s8pD0BQVMDmcTFTaPKz__MGtjd8arEp22KRQQ";
-
-const SUPABASE_CONFIGURED =
-  SUPABASE_URL.includes(".supabase.co") &&
-  !SUPABASE_URL.includes("TU_PROYECTO") &&
-  SUPABASE_ANON.length > 20 &&
-  !SUPABASE_ANON.includes("TU_ANON");
 
 // ─── Estado global ─────────────────────────────────────────
 let SECTORS         = [];
@@ -17,6 +17,11 @@ let SECTOR_BY_ID    = {};
 let ROUTES          = [];
 let POPULAR_TRIPS   = [];
 let POPULAR_SECTORS = [];
+
+// Estado de carga
+let _dataLoaded   = false;
+let _dataLoading  = false;
+let _loadPromise  = null;
 
 // ─── Zona según latitud ────────────────────────────────────
 function inferZona(lat) {
@@ -81,43 +86,46 @@ async function fetchAllPages(table, selectCols, extraParams = {}) {
       if (cr) {
         const parts = cr.split("/");
         const total = parseInt(parts[1]);
-        if (!isNaN(total)) {
-          totalKnown = total;
-          console.log(`📊 ${table}: total en BD = ${total}`);
-        }
+        if (!isNaN(total)) totalKnown = total;
       }
     }
 
     const chunk = await res.json();
     if (!Array.isArray(chunk) || chunk.length === 0) break;
-
     results = results.concat(chunk);
-    console.log(`📦 ${table}: ${results.length}/${totalKnown ?? "?"} cargados`);
-
     if (totalKnown !== null && results.length >= totalKnown) break;
     if (chunk.length < pageSize) break;
-
     offset += pageSize;
   }
-
   return results;
 }
 
 // ══════════════════════════════════════════════════════════
-//  CARGA DESDE SUPABASE
+//  CARGA DESDE SUPABASE (solo cuando se necesita)
 // ══════════════════════════════════════════════════════════
-async function loadDataFromSupabase() {
-  if (!SUPABASE_CONFIGURED) {
-    console.warn("⚠️ Credenciales no configuradas. Usando datos de respaldo.");
-    loadFallbackData();
-    return false;
-  }
+async function ensureDataLoaded() {
+  if (_dataLoaded)  return true;
+  if (_dataLoading) return _loadPromise;
 
+  _dataLoading = true;
+  _loadPromise = _loadData();
+  const ok = await _loadPromise;
+  _dataLoading = false;
+  _dataLoaded  = ok;
+  return ok;
+}
+
+async function _loadData() {
   try {
-    console.log("🔄 Cargando paradas…");
+    // Mostrar spinner en el botón de búsqueda si existe
+    const btnSearch = document.getElementById("btn-search-map");
+    if (btnSearch) {
+      btnSearch.disabled = true;
+      btnSearch.innerHTML = `<span class="btn-spinner"></span> Cargando rutas…`;
+    }
+
     const rawParadas = await fetchAllPages("paradas", "id_parada,nombre,latitud,longitud");
-    if (!rawParadas || rawParadas.length === 0) throw new Error("Sin paradas en Supabase");
-    console.log(`✅ Paradas cargadas: ${rawParadas.length}`);
+    if (!rawParadas || rawParadas.length === 0) throw new Error("Sin paradas");
 
     SECTORS = rawParadas.map(p => ({
       id:   String(p.id_parada),
@@ -132,9 +140,7 @@ async function loadDataFromSupabase() {
       SECTOR_BY_ID[s.id]         = s;
       SECTOR_BY_ID[Number(s.id)] = s;
     });
-    console.log(`✅ SECTOR_BY_ID: ${SECTORS.length} paradas`);
 
-    console.log("🔄 Cargando rutas…");
     let rawRutas = await fetchAllPages(
       "rutas",
       "id_ruta,nombre,cooperativa,color,codigo,tiempo_estimado,activa,coordenadas",
@@ -143,12 +149,9 @@ async function loadDataFromSupabase() {
     if (!rawRutas || rawRutas.length === 0) {
       rawRutas = await fetchAllPages("rutas", "id_ruta,nombre,cooperativa,color,codigo,tiempo_estimado,activa,coordenadas");
     }
-    if (!rawRutas || rawRutas.length === 0) throw new Error("Sin rutas en Supabase");
-    console.log(`✅ Rutas cargadas: ${rawRutas.length}`);
+    if (!rawRutas || rawRutas.length === 0) throw new Error("Sin rutas");
 
-    console.log("🔄 Cargando ruta_paradas…");
     const rawRP = await fetchAllPages("ruta_paradas", "id_ruta,id_parada,orden_parada", { "order": "orden_parada.asc" });
-    console.log(`✅ ruta_paradas: ${rawRP.length}`);
 
     const paradasPorRuta = {};
     rawRP.forEach(rp => {
@@ -156,8 +159,6 @@ async function loadDataFromSupabase() {
       if (!paradasPorRuta[rid]) paradasPorRuta[rid] = [];
       paradasPorRuta[rid].push({ id: String(rp.id_parada), orden: rp.orden_parada });
     });
-
-    let rutasDescartadas = 0, rutasConPath = 0;
 
     ROUTES = rawRutas.map(r => {
       const grupo = paradasPorRuta[String(r.id_ruta)] || [];
@@ -169,14 +170,13 @@ async function loadDataFromSupabase() {
         })
         .filter(Boolean);
 
-      if (paradas.length < 2) { rutasDescartadas++; return null; }
+      if (paradas.length < 2) return null;
 
       const linea = (r.codigo || r.nombre || String(r.id_ruta)).trim();
-
       let path = null;
       if (Array.isArray(r.coordenadas) && r.coordenadas.length > 0) {
         const puntos = aplanarCoordenadas(r.coordenadas);
-        if (puntos.length >= 2) { path = puntos; rutasConPath++; }
+        if (puntos.length >= 2) path = puntos;
       }
 
       return {
@@ -191,14 +191,31 @@ async function loadDataFromSupabase() {
       };
     }).filter(Boolean);
 
-    console.log(`✅ Rutas construidas: ${ROUTES.length} (${rutasDescartadas} descartadas, ${rutasConPath} con GPS)`);
-
     buildPopularData();
+
+    // Restaurar botón
+    if (btnSearch) {
+      btnSearch.disabled = false;
+      btnSearch.innerHTML = `<svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+        <circle cx="9" cy="9" r="6" stroke="white" stroke-width="1.8"/>
+        <path d="M13.5 13.5L17 17" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+      </svg> Buscar rutas`;
+    }
+
     return true;
 
   } catch (err) {
-    console.error("❌ Error Supabase:", err.message);
+    console.error("❌ Error cargando datos:", err.message);
     loadFallbackData();
+
+    const btnSearch = document.getElementById("btn-search-map");
+    if (btnSearch) {
+      btnSearch.disabled = false;
+      btnSearch.innerHTML = `<svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+        <circle cx="9" cy="9" r="6" stroke="white" stroke-width="1.8"/>
+        <path d="M13.5 13.5L17 17" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+      </svg> Buscar rutas`;
+    }
     return false;
   }
 }
@@ -259,21 +276,17 @@ function loadFallbackData() {
 }
 
 // ══════════════════════════════════════════════════════════
-//  MOTOR DE RUTAS POR PROXIMIDAD GEOGRÁFICA
-//  Recibe {lat, lng} en lugar de IDs de paradas
+//  MOTOR DE RUTAS – LÓGICA MEJORADA
+//  Reglas:
+//   1. Máximo 5 resultados totales
+//   2. Primero buscar rutas DIRECTAS
+//   3. Solo añadir transbordos si hay MENOS de 2 directas
+//   4. Un transbordo es válido solo si la parada intermedia
+//      está geográficamente "entre" origen y destino
+//      (no da vueltas: distancia total < 1.5x línea recta)
 // ══════════════════════════════════════════════════════════
+const MAX_WALK_M = 600;
 
-// Radio máximo para considerar que un punto "cubre" un origen/destino
-const MAX_WALK_M = 600; // 600 metros caminando
-
-/**
- * Encuentra paradas cercanas a un punto geográfico, ordenadas por distancia.
- * @param {number} lat
- * @param {number} lng
- * @param {number} maxMetros
- * @param {number} topN
- * @returns {Array<{sector, distM}>}
- */
 function paradasCercanas(lat, lng, maxMetros = MAX_WALK_M, topN = 5) {
   return SECTORS
     .map(s => ({ sector: s, distM: haversineM(lat, lng, s.lat, s.lng) }))
@@ -282,44 +295,30 @@ function paradasCercanas(lat, lng, maxMetros = MAX_WALK_M, topN = 5) {
     .slice(0, topN);
 }
 
-/**
- * Busca rutas entre dos puntos geográficos.
- * Tolerante: busca paradas cercanas al origen y destino,
- * luego encuentra rutas que pasen por ambos conjuntos.
- *
- * @param {{lat, lng}} origin
- * @param {{lat, lng}} dest
- * @returns {Array} resultados de rutas
- */
 function findRoutesByCoords(origin, dest) {
   if (!origin || !dest) return [];
 
+  // Distancia en línea recta origen→destino
+  const distDirectaM = haversineM(origin.lat, origin.lng, dest.lat, dest.lng);
+
   // Paradas cercanas al origen y destino
   let nearOrigin = paradasCercanas(origin.lat, origin.lng, MAX_WALK_M, 8);
-  let nearDest   = paradasCercanas(dest.lat, dest.lng, MAX_WALK_M, 8);
-
-  // Si no hay paradas en radio de 600m, ampliar a 1.2km
+  let nearDest   = paradasCercanas(dest.lat,   dest.lng,   MAX_WALK_M, 8);
   if (nearOrigin.length === 0) nearOrigin = paradasCercanas(origin.lat, origin.lng, 1200, 5);
-  if (nearDest.length   === 0) nearDest   = paradasCercanas(dest.lat, dest.lng, 1200, 5);
-
-  // Si sigue vacío, ampliar a 2km
+  if (nearDest.length   === 0) nearDest   = paradasCercanas(dest.lat,   dest.lng,   1200, 5);
   if (nearOrigin.length === 0) nearOrigin = paradasCercanas(origin.lat, origin.lng, 2000, 3);
-  if (nearDest.length   === 0) nearDest   = paradasCercanas(dest.lat, dest.lng, 2000, 3);
+  if (nearDest.length   === 0) nearDest   = paradasCercanas(dest.lat,   dest.lng,   2000, 3);
 
-  if (nearOrigin.length === 0 || nearDest.length === 0) {
-    console.warn("⚠️ No se encontraron paradas cercanas al origen o destino");
-    return [];
-  }
+  if (nearOrigin.length === 0 || nearDest.length === 0) return [];
 
   const originIds = nearOrigin.map(x => x.sector.id);
   const destIds   = nearDest.map(x => x.sector.id);
-
-  const results = [];
-  const seen    = new Set();
+  const seen      = new Set();
+  const directas  = [];
+  const transbordos = [];
 
   // ── 1. Rutas DIRECTAS ──────────────────────────────────
   for (const route of ROUTES) {
-    // Encontrar la parada de abordaje más cercana al origen
     let bestBoardIdx = -1, bestBoardDist = Infinity;
     for (const oid of originIds) {
       const idx = route.stops.indexOf(oid);
@@ -329,7 +328,6 @@ function findRoutesByCoords(origin, dest) {
     }
     if (bestBoardIdx === -1) continue;
 
-    // Encontrar la parada de bajada más cercana al destino
     let bestAlightIdx = -1, bestAlightDist = Infinity;
     for (const did of destIds) {
       const idx = route.stops.indexOf(did);
@@ -337,10 +335,8 @@ function findRoutesByCoords(origin, dest) {
       const d = nearDest.find(x => x.sector.id === did)?.distM ?? Infinity;
       if (d < bestAlightDist) { bestAlightDist = d; bestAlightIdx = idx; }
     }
-    if (bestAlightIdx === -1) continue;
-    if (bestBoardIdx === bestAlightIdx) continue;
+    if (bestAlightIdx === -1 || bestBoardIdx === bestAlightIdx) continue;
 
-    // Determinar sentido
     let stops;
     if (bestBoardIdx < bestAlightIdx) {
       stops = route.stops.slice(bestBoardIdx, bestAlightIdx + 1);
@@ -353,28 +349,37 @@ function findRoutesByCoords(origin, dest) {
     if (seen.has(key)) continue;
     seen.add(key);
 
-    const walkOriginM = Math.round(bestBoardDist);
-    const walkDestM   = Math.round(bestAlightDist);
-    const walkMin     = Math.ceil((walkOriginM + walkDestM) / 80); // ~80m/min caminando
-
-    results.push({
-      type:          "direct",
-      legs:          [{ route, from: stops[0], to: stops[stops.length - 1], stops }],
-      totalStops:    stops.length - 1,
-      estimatedMin:  (route.estimatedMin
+    const walkMin = Math.ceil((bestBoardDist + bestAlightDist) / 80);
+    directas.push({
+      type:         "direct",
+      legs:         [{ route, from: stops[0], to: stops[stops.length - 1], stops }],
+      totalStops:   stops.length - 1,
+      estimatedMin: (route.estimatedMin
         ? Math.round(route.estimatedMin * stops.length / route.stops.length)
         : calcTime(stops)) + walkMin,
-      transfers:     0,
-      walkOriginM,
-      walkDestM,
-      boardStop:     SECTOR_BY_ID[stops[0]],
-      alightStop:    SECTOR_BY_ID[stops[stops.length - 1]],
+      transfers:    0,
+      walkOriginM:  Math.round(bestBoardDist),
+      walkDestM:    Math.round(bestAlightDist),
+      boardStop:    SECTOR_BY_ID[stops[0]],
+      alightStop:   SECTOR_BY_ID[stops[stops.length - 1]],
     });
   }
 
-  // ── 2. Rutas CON UN TRANSBORDO ─────────────────────────
+  // Ordenar directas por tiempo
+  directas.sort((a, b) => a.estimatedMin - b.estimatedMin);
+
+  // Si hay suficientes directas, devolver solo esas (máx 5)
+  if (directas.length >= 3) return directas.slice(0, 5);
+
+  // ── 2. Transbordos (solo si faltan directas) ───────────
+  // Un transbordo es válido si:
+  // - La parada de transbordo está geográficamente cerca
+  //   de la línea origen→destino (no da vueltas)
+  // - La distancia total bus no supera 1.6x la distancia directa
+
   for (const r1 of ROUTES) {
-    // Parada de abordaje en r1
+    if (transbordos.length >= (3 - directas.length)) break;
+
     let boardIdx1 = -1, boardDist1 = Infinity;
     for (const oid of originIds) {
       const idx = r1.stops.indexOf(oid);
@@ -384,12 +389,10 @@ function findRoutesByCoords(origin, dest) {
     }
     if (boardIdx1 === -1) continue;
 
-    const afterBoard1 = r1.stops.slice(boardIdx1 + 1);
-
     for (const r2 of ROUTES) {
       if (r1.id === r2.id) continue;
+      if (transbordos.length >= (3 - directas.length)) break;
 
-      // Parada de bajada en r2
       let alightIdx2 = -1, alightDist2 = Infinity;
       for (const did of destIds) {
         const idx = r2.stops.indexOf(did);
@@ -399,15 +402,31 @@ function findRoutesByCoords(origin, dest) {
       }
       if (alightIdx2 === -1) continue;
 
-      // Buscar parada de transbordo en común
+      const afterBoard1 = r1.stops.slice(boardIdx1 + 1);
+
       for (const transferStop of afterBoard1) {
         if (destIds.includes(transferStop)) continue;
         const ti2 = r2.stops.indexOf(transferStop);
-        if (ti2 === -1) continue;
-        if (ti2 === alightIdx2) continue;
+        if (ti2 === -1 || ti2 === alightIdx2) continue;
 
         const idx1 = r1.stops.indexOf(transferStop);
         if (idx1 <= boardIdx1) continue;
+
+        // Verificar que la parada de transbordo está en dirección correcta
+        const transferSector = SECTOR_BY_ID[transferStop];
+        if (!transferSector) continue;
+
+        // El transbordo debe estar geográficamente entre origen y destino
+        // Usamos la distancia desde el transbordo al destino vs desde el origen al destino
+        const distTransferToDest   = haversineM(transferSector.lat, transferSector.lng, dest.lat, dest.lng);
+        const distOriginToTransfer = haversineM(origin.lat, origin.lng, transferSector.lat, transferSector.lng);
+
+        // Rechazar si el transbordo está más lejos del destino que el origen (va en dirección contraria)
+        if (distTransferToDest > distDirectaM * 1.1) continue;
+
+        // Rechazar si la distancia total es más de 1.6x la directa
+        const distTotalEstim = distOriginToTransfer + distTransferToDest;
+        if (distTotalEstim > distDirectaM * 1.6) continue;
 
         const leg1stops = r1.stops.slice(boardIdx1, idx1 + 1);
         if (leg1stops.length < 2) continue;
@@ -435,7 +454,7 @@ function findRoutesByCoords(origin, dest) {
           ? Math.round(r2.estimatedMin * leg2stops.length / r2.stops.length)
           : calcTime(leg2stops);
 
-        results.push({
+        transbordos.push({
           type: "transfer",
           legs: [
             { route: r1, from: leg1stops[0], to: transferStop, stops: leg1stops },
@@ -451,21 +470,19 @@ function findRoutesByCoords(origin, dest) {
           alightStop:  SECTOR_BY_ID[leg2stops[leg2stops.length - 1]],
         });
 
-        break; // un transbordo por par de rutas
+        break;
       }
     }
   }
 
-  // Ordenar: primero directas, luego por tiempo estimado
-  results.sort((a, b) => {
-    if (a.type !== b.type) return a.type === "direct" ? -1 : 1;
-    return a.estimatedMin - b.estimatedMin;
-  });
+  transbordos.sort((a, b) => a.estimatedMin - b.estimatedMin);
 
-  return results.slice(0, 15);
+  // Combinar: directas primero, transbordos solo si son necesarios
+  const combined = [...directas, ...transbordos];
+  return combined.slice(0, 5);
 }
 
-// Mantener findRoutes por compatibilidad (algunos sitios del código lo usan con IDs)
+// Mantener findRoutes por compatibilidad
 function findRoutes(originId, destId) {
   const o = SECTOR_BY_ID[originId] || SECTOR_BY_ID[String(originId)];
   const d = SECTOR_BY_ID[destId]   || SECTOR_BY_ID[String(destId)];
@@ -498,17 +515,14 @@ const ROUTE_TIPS = {
   norte: [
     "🚌 En hora pico (7–9 AM y 5–7 PM) las rutas del norte suelen estar llenas.",
     "💡 El Portal Norte del Metrobús conecta con múltiples líneas hacia el centro y sur.",
-    "🔀 Desde Carcelén puedes tomar la Ecovía hasta Quitumbe sin transbordo.",
   ],
   centro: [
     "🚌 Desde Marín puedes tomar rutas hacia cualquier zona de la ciudad.",
     "💡 El Ejido es un punto de transbordo ideal entre norte y sur.",
-    "🔀 El tramo Marín–UCE tiene varias líneas. Si una está llena, la siguiente pasa en minutos.",
   ],
   sur: [
     "🚌 Quitumbe es el terminal sur principal. Muchas rutas confluyen ahí.",
     "💡 El Trolebús y la Ecovía llegan hasta Quitumbe desde el norte.",
-    "🔀 San Bartolo conecta fácilmente el centro con el sur de la ciudad.",
   ],
 };
 
@@ -552,46 +566,12 @@ async function hashPassword(password) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
 }
 
-// ─── INICIALIZACIÓN ────────────────────────────────────────
+// ─── INICIALIZACIÓN LAZY (no carga datos al abrir) ────────
 async function initData() {
-  document.body.insertAdjacentHTML("beforeend", `
-    <div id="data-loader" style="
-      position:fixed;inset:0;background:rgba(26,58,92,.95);
-      display:flex;flex-direction:column;align-items:center;
-      justify-content:center;z-index:9999;gap:18px;
-      font-family:'Plus Jakarta Sans',sans-serif;
-    ">
-      <svg width="56" height="56" viewBox="0 0 40 40">
-        <rect width="40" height="40" rx="10" fill="#FF6B2B"/>
-        <rect x="7" y="14" width="26" height="16" rx="4" fill="white"/>
-        <circle cx="13" cy="31" r="3" fill="#1A3A5C"/>
-        <circle cx="27" cy="31" r="3" fill="#1A3A5C"/>
-        <rect x="10" y="9" width="20" height="7" rx="2" fill="white"/>
-        <rect x="9" y="17" width="7" height="5" rx="1" fill="#ADE0FF"/>
-        <rect x="18" y="17" width="7" height="5" rx="1" fill="#ADE0FF"/>
-      </svg>
-      <div style="color:white;font-weight:700;font-size:1.1rem;">Cargando rutas de Quito…</div>
-      <div style="width:220px;height:5px;background:rgba(255,255,255,.15);border-radius:5px;overflow:hidden;">
-        <div id="load-bar" style="height:100%;background:#FF6B2B;border-radius:5px;width:0%;transition:width .5s ease;"></div>
-      </div>
-      <div style="color:rgba(255,255,255,.4);font-size:.75rem;" id="load-sub">Conectando con la base de datos…</div>
-    </div>
-  `);
-
-  const bar = document.getElementById("load-bar");
-  const sub = document.getElementById("load-sub");
-  if (bar) bar.style.width = "40%";
-
-  const ok = await loadDataFromSupabase();
-
-  if (bar) bar.style.width = "100%";
-  if (sub) sub.textContent = ok
-    ? `✅ ${SECTORS.length} paradas · ${ROUTES.length} rutas listas`
-    : `⚠️ Usando datos de demostración (${SECTORS.length} paradas)`;
-
-  await new Promise(r => setTimeout(r, 600));
+  // Solo quitar el loader si existe (compatibilidad con app.js)
   const loader = document.getElementById("data-loader");
-  if (loader) { loader.style.opacity = "0"; loader.style.transition = "opacity .3s"; }
-  await new Promise(r => setTimeout(r, 320));
-  loader?.remove();
+  if (loader) loader.remove();
+  // Cargar datos de respaldo mínimos para rutas populares estáticas
+  loadFallbackData();
+  // Los datos reales se cargan cuando el usuario busca una ruta
 }
