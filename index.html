@@ -3,25 +3,26 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <meta name="description" content="BusQuito – Encuentra cómo llegar a cualquier lugar de Quito en bus."/>
+  <meta name="description" content="BusQuito – Encuentra cómo llegar a cualquier lugar de Quito en bus urbano."/>
+  <meta name="theme-color" content="#1A3A5C"/>
   <title>BusQuito – Rutas de Quito</title>
-  <link rel="stylesheet" href="styles.css"/>
+
+  <!-- Preconectar fuentes para velocidad -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="styles.css"/>
+  <link rel="stylesheet" href="ihc_fixes.css"/>
 
   <style>
-    /* ══════════════════════════════════════
-       HOME MAP SECTION – Layout dos columnas
-       ══════════════════════════════════════ */
-
+    /* ══ HOME MAP SECTION ══ */
     .hero-map-section {
       background: linear-gradient(135deg, #1A3A5C 0%, #2A5F9E 100%);
       position: relative;
       overflow: hidden;
       min-height: 520px;
     }
-
-    /* Patrón de fondo */
     .hero-map-section::before {
       content: '';
       position: absolute;
@@ -30,34 +31,27 @@
       background-size: 28px 28px;
       pointer-events: none;
     }
-
     .hero-map-section::after {
       content: '';
       position: absolute;
-      width: 500px;
-      height: 500px;
+      width: 500px; height: 500px;
       background: radial-gradient(circle, rgba(255,107,43,.18) 0%, transparent 70%);
-      top: -150px;
-      right: 350px;
+      top: -150px; right: 350px;
       pointer-events: none;
     }
-
     .hero-map-inner {
       position: relative;
       z-index: 1;
       display: grid;
-      grid-template-columns: 480px 1fr;
+      grid-template-columns: 460px 1fr;
       min-height: 520px;
     }
-
-    /* ── Panel izquierdo ── */
     .hero-map-left {
-      padding: 44px 36px 40px;
+      padding: 40px 32px 36px;
       display: flex;
       flex-direction: column;
-      gap: 18px;
+      gap: 16px;
     }
-
     .hero-tag {
       display: inline-block;
       background: rgba(255,107,43,.2);
@@ -70,22 +64,17 @@
       border-radius: 50px;
       width: fit-content;
     }
-
     .hero-map-title h1 {
-      font-size: clamp(1.8rem, 3vw, 2.6rem);
+      font-size: clamp(1.8rem, 2.8vw, 2.5rem);
       color: #fff;
       font-weight: 800;
       line-height: 1.12;
       letter-spacing: -.4px;
       margin-top: 8px;
     }
+    .hero-map-title h1 em { color: #FF6B2B; font-style: normal; }
 
-    .hero-map-title h1 em {
-      color: #FF6B2B;
-      font-style: normal;
-    }
-
-    /* ── Instrucción ── */
+    /* Instrucción */
     .home-instruction {
       display: flex;
       align-items: center;
@@ -97,19 +86,17 @@
       font-size: .88rem;
       color: rgba(255,255,255,.9);
       font-weight: 500;
+      transition: all .3s ease;
     }
-
     .hi-dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      flex-shrink: 0;
+      width: 10px; height: 10px;
+      border-radius: 50%; flex-shrink: 0;
     }
     .hi-dot.origin { background: #27AE60; box-shadow: 0 0 0 3px rgba(39,174,96,.3); }
     .hi-dot.dest   { background: #FF6B2B; box-shadow: 0 0 0 3px rgba(255,107,43,.3); }
     .hi-dot.done   { background: #ADE0FF; box-shadow: 0 0 0 3px rgba(173,224,255,.3); }
 
-    /* ── Campos origen / destino ── */
+    /* Campos */
     .hmp-fields {
       background: rgba(255,255,255,.1);
       backdrop-filter: blur(16px);
@@ -117,55 +104,45 @@
       border-radius: 16px;
       overflow: hidden;
     }
-
     .hmp-field {
       position: relative;
       padding: 14px 16px 12px;
       border-bottom: 1px solid rgba(255,255,255,.1);
       transition: background .2s;
     }
-
     .hmp-field:last-child { border-bottom: none; }
-    .hmp-field:hover { background: rgba(255,255,255,.06); }
-
     .hmp-field-label {
       display: flex;
       align-items: center;
       gap: 7px;
       margin-bottom: 4px;
     }
-
-    .hmp-field-label span.label-text {
+    .hmp-field-label .label-text {
       font-size: .68rem;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: .8px;
       color: rgba(255,255,255,.5);
     }
-
     .field-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
+      width: 8px; height: 8px;
+      border-radius: 50%; flex-shrink: 0;
     }
-
     .hmp-field-value {
       font-size: 1rem;
       font-weight: 600;
-      color: #fff;
+      color: rgba(255,255,255,.35);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      padding-right: 80px;
+      padding-right: 90px;
+      min-height: 1.4em;
+      transition: color .25s ease, font-weight .2s ease;
     }
-
-    .hmp-field-value.placeholder-text {
-      color: rgba(255,255,255,.35);
-      font-weight: 400;
-      font-size: .93rem;
+    .hmp-field-value:not(.placeholder-text) {
+      color: #ffffff !important;
+      font-weight: 700 !important;
     }
-
     .hmp-field-actions {
       position: absolute;
       right: 12px;
@@ -175,15 +152,14 @@
       align-items: center;
       gap: 6px;
     }
-
     .field-geo-btn {
       display: flex;
       align-items: center;
       gap: 4px;
       background: rgba(255,255,255,.12);
       border: 1px solid rgba(255,255,255,.2);
-      color: rgba(255,255,255,.75);
-      padding: 4px 10px;
+      color: rgba(255,255,255,.8);
+      padding: 5px 10px;
       border-radius: 50px;
       font-size: .7rem;
       font-weight: 700;
@@ -191,25 +167,19 @@
       cursor: pointer;
       transition: all .2s;
       white-space: nowrap;
+      min-height: 28px;
     }
-
-    .field-geo-btn:hover {
-      background: rgba(39,174,96,.3);
+    .field-geo-btn:hover:not(:disabled) {
+      background: rgba(39,174,96,.35);
       border-color: #27AE60;
       color: #fff;
     }
-
-    .field-geo-btn:disabled {
-      opacity: .5;
-      cursor: wait;
-    }
-
+    .field-geo-btn:disabled { opacity: .5; cursor: wait; }
     .field-clear-btn {
-      background: rgba(255,255,255,.1);
-      border: none;
-      color: rgba(255,255,255,.5);
-      width: 22px;
-      height: 22px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.15);
+      color: rgba(255,255,255,.7);
+      width: 24px; height: 24px;
       border-radius: 50%;
       font-size: .7rem;
       display: flex;
@@ -219,24 +189,23 @@
       transition: all .2s;
       font-family: 'Plus Jakarta Sans', sans-serif;
     }
-
     .field-clear-btn:hover {
-      background: rgba(255,255,255,.25);
+      background: rgba(229,57,53,.3);
+      border-color: #E53935;
       color: #fff;
     }
 
-    /* ── Botones de acción ── */
+    /* Botones acción */
     .hmp-actions {
       display: flex;
       gap: 8px;
       align-items: center;
     }
-
     .btn-reset-home {
       background: rgba(255,255,255,.1);
       border: 1.5px solid rgba(255,255,255,.18);
-      color: rgba(255,255,255,.75);
-      padding: 10px 16px;
+      color: rgba(255,255,255,.8);
+      padding: 11px 16px;
       border-radius: 12px;
       font-size: .85rem;
       font-weight: 700;
@@ -244,13 +213,12 @@
       cursor: pointer;
       transition: all .2s;
       white-space: nowrap;
+      min-height: 44px;
     }
-
     .btn-reset-home:hover {
       background: rgba(255,255,255,.2);
       color: #fff;
     }
-
     .btn-search-home {
       flex: 1;
       display: flex;
@@ -267,38 +235,45 @@
       font-family: 'Plus Jakarta Sans', sans-serif;
       cursor: pointer;
       transition: all .2s;
+      min-height: 44px;
+      position: relative;
+      overflow: hidden;
     }
-
     .btn-search-home:hover:not(:disabled) {
       background: #E05520;
       transform: translateY(-1px);
       box-shadow: 0 6px 20px rgba(255,107,43,.4);
     }
-
     .btn-search-home:disabled {
       opacity: .45;
       cursor: not-allowed;
       transform: none;
-      box-shadow: none;
     }
 
-    /* ── Live card ── */
+    /* Hint debajo de los campos */
+    .hmp-hint {
+      font-size: .74rem;
+      color: rgba(255,255,255,.4);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: -4px;
+    }
+
+    /* Live card */
     .home-live-card {
       background: rgba(255,255,255,.07);
       backdrop-filter: blur(12px);
       border: 1.5px solid rgba(255,255,255,.12);
-      border-radius: 16px;
-      padding: 16px 18px;
-      margin-top: 4px;
+      border-radius: 14px;
+      padding: 14px 16px;
     }
-
     .hlc-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
-
     .hlc-tag {
       font-size: .68rem;
       font-weight: 700;
@@ -306,70 +281,45 @@
       letter-spacing: .8px;
       color: rgba(173,224,255,.7);
     }
-
     .hlc-pulse {
-      width: 7px;
-      height: 7px;
+      width: 7px; height: 7px;
       background: #27AE60;
       border-radius: 50%;
       animation: pulse 2s infinite;
     }
-
     @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(39,174,96,.4); }
-      70%       { box-shadow: 0 0 0 6px rgba(39,174,96,0); }
+      0%,100%{ box-shadow:0 0 0 0 rgba(39,174,96,.4); }
+      70%     { box-shadow:0 0 0 6px rgba(39,174,96,0); }
     }
-
-    .hlc-routes {
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-    }
-
+    .hlc-routes { display: flex; flex-direction: column; gap: 6px; }
     .hlc-route {
       background: rgba(255,255,255,.06);
       border: 1px solid rgba(255,255,255,.08);
-      border-radius: 10px;
+      border-radius: 9px;
       padding: 9px 12px;
       cursor: pointer;
       transition: all .2s;
     }
-
     .hlc-route:hover {
       background: rgba(255,255,255,.14);
       border-color: rgba(255,107,43,.35);
     }
+    .hlc-route-path { font-size: .86rem; font-weight: 600; color: #fff; }
+    .hlc-route-meta { font-size: .72rem; color: rgba(173,224,255,.65); margin-top: 2px; }
 
-    .hlc-route-path {
-      font-size: .86rem;
-      font-weight: 600;
-      color: #fff;
-    }
-
-    .hlc-route-meta {
-      font-size: .72rem;
-      color: rgba(173,224,255,.65);
-      margin-top: 2px;
-    }
-
-    /* ── Panel derecho: mapa ── */
-    .hero-map-right {
-      position: relative;
-    }
-
+    /* Mapa derecho */
+    .hero-map-right { position: relative; }
     #home-map {
       width: 100%;
       height: 100%;
       min-height: 520px;
     }
-
-    /* Overlay de instrucción sobre el mapa */
     .map-overlay-hint {
       position: absolute;
       top: 12px;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(26,58,92,.9);
+      background: rgba(26,58,92,.92);
       backdrop-filter: blur(8px);
       border: 1px solid rgba(255,255,255,.15);
       color: #fff;
@@ -381,10 +331,10 @@
       z-index: 500;
       pointer-events: none;
       white-space: nowrap;
-      transition: opacity .3s;
+      transition: opacity .4s ease;
     }
 
-    /* ── Stats bar ── */
+    /* Stats */
     .stats-bar {
       background: #fff;
       border-bottom: 1.5px solid #DDE3EC;
@@ -393,68 +343,51 @@
       align-items: center;
       padding: 16px 24px;
     }
+    .stat-item { display: flex; flex-direction: column; align-items: center; padding: 0 32px; }
+    .stat-n { font-size: 1.2rem; font-weight: 800; color: #FF6B2B; }
+    .stat-l { font-size: .73rem; font-weight: 600; color: #6B7A92; text-transform: uppercase; letter-spacing: .5px; }
+    .stat-sep { width: 1.5px; height: 32px; background: #DDE3EC; }
 
-    .stat-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 0 32px;
+    /* Spinner botón */
+    .btn-spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: btn-spin .7s linear infinite;
+      flex-shrink: 0;
     }
+    @keyframes btn-spin { to { transform: rotate(360deg); } }
 
-    .stat-n {
-      font-size: 1.2rem;
-      font-weight: 800;
-      color: #FF6B2B;
-    }
-
-    .stat-l {
-      font-size: .73rem;
-      font-weight: 600;
-      color: #6B7A92;
-      text-transform: uppercase;
-      letter-spacing: .5px;
-    }
-
-    .stat-sep {
-      width: 1.5px;
-      height: 32px;
-      background: #DDE3EC;
-    }
-
-    /* ── Responsive ── */
+    /* Responsive */
     @media (max-width: 900px) {
-      .hero-map-inner {
-        grid-template-columns: 1fr;
-      }
-      .hero-map-right {
-        order: -1;
-      }
-      #home-map {
-        min-height: 280px;
-        height: 280px;
-      }
-      .hero-map-left {
-        padding: 28px 20px 32px;
-      }
+      .hero-map-inner { grid-template-columns: 1fr; }
+      .hero-map-right { order: -1; }
+      #home-map { min-height: 260px; height: 260px; }
+      .hero-map-left { padding: 24px 18px 28px; }
     }
-
     @media (max-width: 640px) {
-      .stats-bar { gap: 0; padding: 12px 10px; }
-      .stat-item  { padding: 0 14px; }
+      .stats-bar { padding: 12px 10px; }
+      .stat-item  { padding: 0 12px; }
       .stat-n     { font-size: 1rem; }
+      .hero-map-left { gap: 12px; }
     }
   </style>
 </head>
 <body>
 
+<!-- Skip link WCAG 2.4.1 -->
+<a href="#main-content" class="skip-link">Saltar al contenido principal</a>
+
 <!-- ══ BARRA ACCESIBILIDAD ══ -->
 <div class="a11y-bar" role="toolbar" aria-label="Controles de accesibilidad">
   <span class="a11y-label">Accesibilidad:</span>
-  <button class="a11y-btn" id="font-sm" aria-label="Texto pequeño">A−</button>
-  <button class="a11y-btn active" id="font-md" aria-label="Texto normal">A</button>
-  <button class="a11y-btn" id="font-lg" aria-label="Texto grande">A+</button>
+  <button class="a11y-btn" id="font-sm" aria-label="Tamaño de texto pequeño">A−</button>
+  <button class="a11y-btn active" id="font-md" aria-label="Tamaño de texto normal">A</button>
+  <button class="a11y-btn" id="font-lg" aria-label="Tamaño de texto grande">A+</button>
   <div class="a11y-sep" aria-hidden="true"></div>
-  <button class="a11y-btn" id="btn-contrast" aria-label="Alto contraste" aria-pressed="false">
+  <button class="a11y-btn" id="btn-contrast" aria-label="Activar modo alto contraste" aria-pressed="false">
     <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/>
       <path d="M8 1a7 7 0 0 1 0 14Z" fill="currentColor"/>
@@ -466,7 +399,7 @@
 <!-- ══ HEADER ══ -->
 <header class="header" role="banner">
   <div class="header-inner">
-    <a href="#" class="logo" id="logo-home" aria-label="BusQuito inicio">
+    <a href="#" class="logo" id="logo-home" aria-label="BusQuito – Ir al inicio">
       <svg class="logo-svg" viewBox="0 0 40 40" aria-hidden="true">
         <rect width="40" height="40" rx="10" fill="#FF6B2B"/>
         <rect x="7" y="14" width="26" height="16" rx="4" fill="white"/>
@@ -479,19 +412,19 @@
       <span class="logo-text">Bus<strong>Quito</strong></span>
     </a>
     <nav class="main-nav" aria-label="Navegación principal">
-      <button class="nav-btn active" id="nav-home">Inicio</button>
+      <button class="nav-btn active" id="nav-home" aria-current="page">Inicio</button>
       <button class="nav-btn" id="nav-favorites">⭐ Favoritos</button>
       <button class="nav-btn" id="nav-history">🕐 Historial</button>
     </nav>
     <div class="header-right">
-      <div class="header-loc">
+      <div class="header-loc" aria-label="Ciudad: Quito, Ecuador">
         <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true">
           <circle cx="7" cy="7" r="6" stroke="#FF6B2B" stroke-width="1.5"/>
           <path d="M7 3v4l2.5 2.5" stroke="#FF6B2B" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
         Quito, EC
       </div>
-      <button class="btn-account" id="btn-account">
+      <button class="btn-account" id="btn-account" aria-label="Acceder a tu cuenta">
         <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
           <circle cx="10" cy="7" r="4" stroke="currentColor" stroke-width="1.5"/>
           <path d="M3 17c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -502,75 +435,90 @@
   </div>
 </header>
 
-<!-- ══════════════════════════════════
-     PANTALLA: HOME
-══════════════════════════════════ -->
+<!-- ══ PANTALLA: HOME ══ -->
+<main id="main-content">
 <div id="screen-home" class="screen active">
 
-  <!-- Hero + Mapa -->
-  <section class="hero-map-section">
+  <section class="hero-map-section" aria-label="Buscador de rutas de bus">
     <div class="hero-map-inner">
 
-      <!-- ── Columna izquierda: controles ── -->
+      <!-- Columna izquierda -->
       <div class="hero-map-left">
 
         <div class="hero-map-title">
-          <span class="hero-tag">Sistema de transporte urbano · Quito</span>
+          <span class="hero-tag" aria-hidden="true">Sistema de transporte urbano · Quito</span>
           <h1>¿A dónde quieres <em>ir hoy?</em></h1>
         </div>
 
         <!-- Instrucción dinámica -->
-        <div id="home-instruction" class="home-instruction">
-          <span class="hi-dot origin"></span>
-          <span id="hi-text">Toca el mapa para marcar tu <strong>origen</strong></span>
+        <div id="home-instruction" class="home-instruction" aria-live="polite" aria-atomic="true">
+          <span class="hi-dot origin" aria-hidden="true"></span>
+          <span>Toca el mapa para marcar tu <strong>origen</strong></span>
         </div>
 
         <!-- Campos origen / destino -->
-        <div class="hmp-fields">
+        <div class="hmp-fields" role="group" aria-label="Selección de origen y destino">
 
-          <!-- Campo DESDE -->
           <div class="hmp-field" id="field-origin">
             <div class="hmp-field-label">
-              <span class="field-dot" style="background:#27AE60"></span>
-              <span class="label-text">Desde</span>
+              <span class="field-dot" style="background:#27AE60" aria-hidden="true"></span>
+              <span class="label-text" id="label-origin">Desde</span>
             </div>
-            <div class="hmp-field-value placeholder-text" id="chip-origin">
+            <div class="hmp-field-value placeholder-text" id="chip-origin"
+                 role="status" aria-labelledby="label-origin"
+                 aria-label="Origen no seleccionado">
               Toca el mapa o usa tu ubicación
             </div>
             <div class="hmp-field-actions">
-              <button class="field-geo-btn" id="btn-geo-origin" title="Usar mi ubicación como origen">
-                <svg width="11" height="11" viewBox="0 0 20 20" fill="none">
+              <button class="field-geo-btn" id="btn-geo-origin"
+                      aria-label="Usar mi ubicación actual como punto de origen"
+                      title="Mi ubicación como origen">
+                <svg width="11" height="11" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                   <circle cx="10" cy="10" r="3" fill="currentColor"/>
                   <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.8"/>
                   <path d="M10 1v3M10 16v3M1 10h3M16 10h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                 </svg>
                 Mi ubicación
               </button>
-              <button class="field-clear-btn" id="btn-clear-origin" style="display:none" title="Limpiar origen">✕</button>
+              <button class="field-clear-btn" id="btn-clear-origin"
+                      style="display:none"
+                      aria-label="Limpiar punto de origen">✕</button>
             </div>
           </div>
 
-          <!-- Campo HASTA -->
           <div class="hmp-field" id="field-dest">
             <div class="hmp-field-label">
-              <span class="field-dot" style="background:#FF6B2B"></span>
-              <span class="label-text">Hasta</span>
+              <span class="field-dot" style="background:#FF6B2B" aria-hidden="true"></span>
+              <span class="label-text" id="label-dest">Hasta</span>
             </div>
-            <div class="hmp-field-value placeholder-text" id="chip-dest">
-              Toca el mapa para marcar destino
+            <div class="hmp-field-value placeholder-text" id="chip-dest"
+                 role="status" aria-labelledby="label-dest"
+                 aria-label="Destino no seleccionado">
+              Toca el mapa para marcar tu destino
             </div>
             <div class="hmp-field-actions">
-              <button class="field-clear-btn" id="btn-clear-dest" style="display:none" title="Limpiar destino">✕</button>
+              <button class="field-clear-btn" id="btn-clear-dest"
+                      style="display:none"
+                      aria-label="Limpiar punto de destino">✕</button>
             </div>
           </div>
 
-        </div><!-- /.hmp-fields -->
+        </div>
 
-        <!-- Botones -->
+        <p class="hmp-hint" aria-hidden="true">
+          💡 Toca cualquier punto del mapa — no necesitas buscar paradas
+        </p>
+
         <div class="hmp-actions">
-          <button class="btn-reset-home" id="btn-reset-map">↺ Limpiar</button>
-          <button class="btn-search-home" id="btn-search-map" disabled>
-            <svg width="15" height="15" viewBox="0 0 20 20" fill="none">
+          <button class="btn-reset-home" id="btn-reset-map"
+                  aria-label="Limpiar selección de origen y destino">
+            ↺ Limpiar
+          </button>
+          <button class="btn-search-home" id="btn-search-map"
+                  disabled
+                  aria-label="Buscar rutas disponibles"
+                  aria-disabled="true">
+            <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
               <circle cx="9" cy="9" r="6" stroke="white" stroke-width="1.8"/>
               <path d="M13.5 13.5L17 17" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
             </svg>
@@ -579,78 +527,89 @@
         </div>
 
         <!-- Rutas populares -->
-        <div class="home-live-card">
+        <div class="home-live-card" aria-label="Rutas populares">
           <div class="hlc-header">
             <span class="hlc-tag">Rutas populares ahora</span>
-            <div class="hlc-pulse"></div>
+            <div class="hlc-pulse" aria-hidden="true"></div>
           </div>
-          <div class="hlc-routes" id="lc-routes"></div>
+          <div class="hlc-routes" id="lc-routes" role="list"
+               aria-label="Lista de rutas populares"></div>
         </div>
 
       </div><!-- /.hero-map-left -->
 
-      <!-- ── Columna derecha: mapa ── -->
+      <!-- Mapa -->
       <div class="hero-map-right">
-        <div id="home-map" aria-label="Mapa de Quito para seleccionar origen y destino" tabindex="0"></div>
-        <div class="map-overlay-hint" id="map-hint">📍 Toca para marcar tu origen</div>
+        <div id="home-map"
+             role="application"
+             aria-label="Mapa interactivo de Quito. Haz clic para marcar origen y destino."
+             tabindex="0"></div>
+        <div class="map-overlay-hint" id="map-hint" aria-hidden="true">
+          📍 Toca para marcar tu origen
+        </div>
       </div>
 
-    </div><!-- /.hero-map-inner -->
+    </div>
   </section>
 
-  <!-- Stats bar -->
-  <div class="stats-bar" aria-label="Estadísticas del sistema">
-    <div class="stat-item"><span class="stat-n">35+</span><span class="stat-l">Empresas</span></div>
-    <div class="stat-sep"></div>
-    <div class="stat-item"><span class="stat-n">120+</span><span class="stat-l">Líneas</span></div>
-    <div class="stat-sep"></div>
-    <div class="stat-item"><span class="stat-n">3</span><span class="stat-l">Zonas</span></div>
-    <div class="stat-sep"></div>
-    <div class="stat-item"><span class="stat-n">Norte · Sur · Centro</span><span class="stat-l">Cobertura</span></div>
+  <div class="stats-bar" aria-label="Estadísticas del sistema de transporte">
+    <div class="stat-item">
+      <span class="stat-n" aria-label="35 o más empresas">35+</span>
+      <span class="stat-l">Empresas</span>
+    </div>
+    <div class="stat-sep" aria-hidden="true"></div>
+    <div class="stat-item">
+      <span class="stat-n" aria-label="120 o más líneas">120+</span>
+      <span class="stat-l">Líneas</span>
+    </div>
+    <div class="stat-sep" aria-hidden="true"></div>
+    <div class="stat-item">
+      <span class="stat-n">3</span>
+      <span class="stat-l">Zonas</span>
+    </div>
+    <div class="stat-sep" aria-hidden="true"></div>
+    <div class="stat-item">
+      <span class="stat-n">Norte · Sur · Centro</span>
+      <span class="stat-l">Cobertura</span>
+    </div>
   </div>
 
 </div><!-- /#screen-home -->
 
-<!-- ══════════════════════════════════
-     PANTALLA: RESULTADOS
-══════════════════════════════════ -->
-<div id="screen-results" class="screen">
+<!-- ══ PANTALLA: RESULTADOS ══ -->
+<div id="screen-results" class="screen" aria-label="Resultados de búsqueda de rutas">
   <div class="screen-inner">
     <div class="results-top">
-      <button class="back-btn" id="back-from-results">← Volver</button>
-      <div class="trip-summary" id="trip-summary" aria-live="polite"></div>
+      <button class="back-btn" id="back-from-results" aria-label="Volver al mapa">← Volver</button>
+      <div class="trip-summary" id="trip-summary" aria-live="polite" aria-atomic="true"></div>
     </div>
-
-    <div class="filter-bar" role="group" aria-label="Filtrar resultados">
-      <button class="filter-btn active" data-filter="all">Todas</button>
-      <button class="filter-btn" data-filter="direct">🟢 Directas</button>
-      <button class="filter-btn" data-filter="transfer">🔵 Con transbordo</button>
-      <button class="filter-btn" data-filter="fast">⚡ Más rápidas</button>
+    <div class="filter-bar" role="group" aria-label="Filtrar resultados de rutas">
+      <button class="filter-btn active" data-filter="all" aria-pressed="true">Todas</button>
+      <button class="filter-btn" data-filter="direct" aria-pressed="false">🟢 Directas</button>
+      <button class="filter-btn" data-filter="transfer" aria-pressed="false">🔵 Con transbordo</button>
+      <button class="filter-btn" data-filter="fast" aria-pressed="false">⚡ Más rápidas</button>
     </div>
-
     <div class="results-layout">
-      <div class="results-list" id="results-list" aria-live="polite"></div>
+      <div class="results-list" id="results-list" aria-live="polite" aria-label="Lista de rutas encontradas"></div>
       <div class="results-map-panel">
-        <div id="results-map" aria-label="Mapa de rutas" tabindex="0"></div>
-        <div class="rmap-legend">
-          <span class="rml-item"><span class="rml-dot green"></span>Directo</span>
-          <span class="rml-item"><span class="rml-dot blue"></span>Transbordo</span>
+        <div id="results-map" role="img" aria-label="Mapa con las rutas encontradas" tabindex="0"></div>
+        <div class="rmap-legend" aria-label="Leyenda del mapa">
+          <span class="rml-item"><span class="rml-dot green" aria-hidden="true"></span>Directo</span>
+          <span class="rml-item"><span class="rml-dot blue" aria-hidden="true"></span>Transbordo</span>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════
-     PANTALLA: DETALLE
-══════════════════════════════════ -->
+<!-- ══ PANTALLA: DETALLE ══ -->
 <div id="screen-detail" class="screen">
   <div class="screen-inner">
     <div class="detail-top">
-      <button class="back-btn" id="back-from-detail">← Resultados</button>
+      <button class="back-btn" id="back-from-detail" aria-label="Volver a los resultados">← Resultados</button>
       <div class="detail-title-wrap">
         <h2 class="detail-title" id="detail-title">Detalle de ruta</h2>
-        <button class="fav-btn" id="fav-btn" aria-pressed="false">
+        <button class="fav-btn" id="fav-btn" aria-pressed="false" aria-label="Guardar ruta en favoritos">
           <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path d="M10 17l-7-7a4 4 0 0 1 5.657-5.657L10 5.686l1.343-1.343A4 4 0 0 1 17 10l-7 7z"
                   stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
@@ -663,48 +622,41 @@
       <div class="detail-steps" id="detail-steps"></div>
       <div class="detail-sidebar">
         <div class="detail-info-card" id="detail-info"></div>
-        <div id="detail-map" aria-label="Mapa detallado de la ruta" tabindex="0"></div>
+        <div id="detail-map" role="img" aria-label="Mapa detallado de la ruta seleccionada" tabindex="0"></div>
         <div class="detail-tips" id="detail-tips"></div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════
-     PANTALLA: FAVORITOS
-══════════════════════════════════ -->
+<!-- ══ PANTALLA: FAVORITOS ══ -->
 <div id="screen-favorites" class="screen">
   <div class="screen-inner">
     <div class="page-header">
-      <button class="back-btn" id="back-from-fav">← Volver</button>
+      <button class="back-btn" id="back-from-fav" aria-label="Volver al inicio">← Volver</button>
       <h2 class="page-title">⭐ Mis rutas favoritas</h2>
     </div>
-    <div id="favorites-list" class="fav-list" aria-live="polite"></div>
+    <div id="favorites-list" class="fav-list" aria-live="polite" aria-label="Lista de rutas favoritas"></div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════
-     PANTALLA: HISTORIAL
-══════════════════════════════════ -->
+<!-- ══ PANTALLA: HISTORIAL ══ -->
 <div id="screen-history" class="screen">
   <div class="screen-inner">
     <div class="page-header">
-      <button class="back-btn" id="back-from-hist">← Volver</button>
+      <button class="back-btn" id="back-from-hist" aria-label="Volver al inicio">← Volver</button>
       <h2 class="page-title">🕐 Historial de búsquedas</h2>
-      <button class="clear-hist-btn" id="clear-hist">Borrar todo</button>
+      <button class="clear-hist-btn" id="clear-hist" aria-label="Borrar todo el historial">Borrar todo</button>
     </div>
-    <div id="history-list" class="hist-list" aria-live="polite"></div>
+    <div id="history-list" class="hist-list" aria-live="polite" aria-label="Lista de búsquedas recientes"></div>
   </div>
 </div>
 
-<!-- ══════════════════════════════════
-     PANTALLA: CUENTA / AUTH
-══════════════════════════════════ -->
+<!-- ══ PANTALLA: CUENTA ══ -->
 <div id="screen-account" class="screen">
   <div class="screen-inner narrow">
-    <button class="back-btn" id="back-from-account">← Volver</button>
+    <button class="back-btn" id="back-from-account" aria-label="Volver al inicio">← Volver</button>
 
-    <!-- Vista: no logueado -->
     <div id="view-auth" class="auth-card">
       <div class="auth-logo" aria-hidden="true">
         <svg viewBox="0 0 40 40" width="48" height="48">
@@ -716,51 +668,52 @@
         </svg>
       </div>
       <h2 class="auth-title">Bienvenido a BusQuito</h2>
-      <p class="auth-sub">Guarda tus rutas favoritas, revisa tu historial y personaliza tu experiencia.</p>
+      <p class="auth-sub">Guarda tus rutas favoritas y personaliza tu experiencia.</p>
 
-      <div class="auth-tabs" role="tablist">
-        <button class="auth-tab active" data-tab="login" role="tab" aria-selected="true">Iniciar sesión</button>
-        <button class="auth-tab" data-tab="register" role="tab" aria-selected="false">Crear cuenta</button>
+      <div class="auth-tabs" role="tablist" aria-label="Opciones de autenticación">
+        <button class="auth-tab active" data-tab="login" role="tab" aria-selected="true" aria-controls="form-login">Iniciar sesión</button>
+        <button class="auth-tab" data-tab="register" role="tab" aria-selected="false" aria-controls="form-register">Crear cuenta</button>
       </div>
 
-      <div id="form-login" class="auth-form" role="tabpanel">
+      <div id="form-login" class="auth-form" role="tabpanel" aria-labelledby="tab-login">
         <div class="form-field">
-          <label for="login-email">Correo electrónico</label>
+          <label for="login-email-local">Correo electrónico</label>
           <div id="login-email-wrap"></div>
         </div>
         <div class="form-field">
           <label for="login-pass">Contraseña</label>
-          <input id="login-pass" type="password" placeholder="Tu contraseña" autocomplete="current-password"/>
-          <button class="pass-toggle" data-target="login-pass" aria-label="Mostrar/ocultar contraseña">👁</button>
+          <input id="login-pass" type="password" placeholder="Tu contraseña" autocomplete="current-password"
+                 aria-describedby="login-error"/>
+          <button class="pass-toggle" data-target="login-pass" aria-label="Mostrar u ocultar contraseña">👁</button>
         </div>
-        <div class="form-error hidden" id="login-error" role="alert"></div>
+        <div class="form-error hidden" id="login-error" role="alert" aria-live="assertive"></div>
         <button class="btn-auth" id="btn-login">Iniciar sesión</button>
         <p class="auth-hint">¿No tienes cuenta? <button class="link-btn" data-tab="register">Créala aquí</button></p>
       </div>
 
-      <div id="form-register" class="auth-form hidden" role="tabpanel">
+      <div id="form-register" class="auth-form hidden" role="tabpanel" aria-labelledby="tab-register">
         <div class="form-field">
           <label for="reg-name">Nombre completo</label>
           <input id="reg-name" type="text" placeholder="Tu nombre" autocomplete="name"/>
         </div>
         <div class="form-field">
-          <label for="reg-email">Correo electrónico</label>
+          <label for="reg-email-local">Correo electrónico</label>
           <div id="reg-email-wrap"></div>
         </div>
         <div class="form-field">
           <label for="reg-pass">Contraseña</label>
-          <input id="reg-pass" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"/>
-          <button class="pass-toggle" data-target="reg-pass" aria-label="Mostrar/ocultar contraseña">👁</button>
+          <input id="reg-pass" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password"
+                 aria-describedby="reg-error"/>
+          <button class="pass-toggle" data-target="reg-pass" aria-label="Mostrar u ocultar contraseña">👁</button>
         </div>
-        <div class="form-error hidden" id="reg-error" role="alert"></div>
+        <div class="form-error hidden" id="reg-error" role="alert" aria-live="assertive"></div>
         <button class="btn-auth" id="btn-register">Crear cuenta</button>
         <p class="auth-hint">¿Ya tienes cuenta? <button class="link-btn" data-tab="login">Inicia sesión</button></p>
       </div>
     </div>
 
-    <!-- Vista: logueado -->
     <div id="view-profile" class="profile-card hidden">
-      <div class="profile-avatar" id="profile-avatar">👤</div>
+      <div class="profile-avatar" id="profile-avatar" aria-hidden="true">👤</div>
       <h2 class="profile-name" id="profile-name">Usuario</h2>
       <p class="profile-email" id="profile-email"></p>
       <div class="profile-stats">
@@ -775,6 +728,7 @@
     </div>
   </div>
 </div>
+</main>
 
 <!-- ══ TOAST ══ -->
 <div id="toast" class="toast hidden" role="alert" aria-live="assertive" aria-atomic="true"></div>
@@ -792,273 +746,338 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="data.js"></script>
+<script src="data_lazy.js"></script>
 <script src="maps.js"></script>
 <script src="app.js"></script>
 
 <script>
 /* ══════════════════════════════════════
-   HOME MAP – lógica del nuevo index
-   Reemplaza completamente initHomeMap()
-   de app.js con este bloque inline
+   HOME MAP – nueva implementación
+   Sobrescribe initHomeMap() de app.js
    ══════════════════════════════════════ */
-(function patchHomeMap() {
+window.initHomeMap = function() {
+  const container = document.getElementById("home-map");
+  if (!container) return;
 
-  // Esperar a que app.js esté listo
-  document.addEventListener("DOMContentLoaded", () => {}, { once: true });
+  const map = L.map(container, { zoomControl: true, attributionControl: false })
+    .setView([-0.2201, -78.5123], 13);
 
-  // Override de initHomeMap
-  window._initHomeMapNew = function() {
-    const container = document.getElementById("home-map");
-    if (!container) return;
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "© OSM contributors", maxZoom: 19,
+  }).addTo(map);
 
-    // Crear mapa
-    const map = L.map(container, { zoomControl: true, attributionControl: false })
-      .setView([-0.2201, -78.5123], 13);
+  if (typeof APP !== "undefined") {
+    APP.maps = APP.maps || {};
+    APP.maps["home-map"] = map;
+  }
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: "© OSM contributors", maxZoom: 19,
-    }).addTo(map);
+  let originMarker = null, destMarker = null, lineDashed = null;
+  let clickState   = "origin";
 
-    if (typeof APP !== "undefined") APP.maps = APP.maps || {};
-    if (typeof APP !== "undefined") APP.maps["home-map"] = map;
-
-    let originMarker = null;
-    let destMarker   = null;
-    let lineDashed   = null;
-    let clickState   = "origin"; // "origin" | "dest" | "done"
-
-    // Geoloc inicial
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(pos => {
+  /* --- Geoloc inicial (centrar el mapa) --- */
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
         const { latitude: lat, longitude: lng } = pos.coords;
         if (lat > -6 && lat < 2) map.setView([lat, lng], 15);
-      }, () => {}, { timeout: 5000 });
+      },
+      () => {},
+      { timeout: 6000, enableHighAccuracy: false }
+    );
+  }
+
+  /* --- Helpers visuales --- */
+  function makePinIcon(color, letter) {
+    return L.divIcon({
+      className: "",
+      html: `<div style="position:relative;width:28px;height:38px">
+        <div style="width:28px;height:28px;background:${color};border:3px solid white;
+             border-radius:50%;box-shadow:0 3px 10px rgba(0,0,0,.35);display:flex;
+             align-items:center;justify-content:center;color:white;font-size:13px;font-weight:800">
+          ${letter}
+        </div>
+        <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+             width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;
+             border-top:12px solid ${color}"></div>
+      </div>`,
+      iconSize: [28, 38], iconAnchor: [14, 38],
+    });
+  }
+
+  function updateInstruction() {
+    const el   = document.getElementById("home-instruction");
+    const hint = document.getElementById("map-hint");
+    if (!el) return;
+    if (clickState === "origin") {
+      el.innerHTML = `<span class="hi-dot origin" aria-hidden="true"></span> Toca el mapa para marcar tu <strong>origen</strong>`;
+      if (hint) hint.textContent = "📍 Toca para marcar tu origen";
+    } else if (clickState === "dest") {
+      el.innerHTML = `<span class="hi-dot dest" aria-hidden="true"></span> Ahora toca para marcar tu <strong>destino</strong>`;
+      if (hint) hint.textContent = "🏁 Toca para marcar tu destino";
+    } else {
+      el.innerHTML = `<span class="hi-dot done" aria-hidden="true"></span> ¡Listo! Presiona <strong>Buscar rutas</strong>`;
+      if (hint) hint.style.opacity = "0";
     }
+  }
 
-    function updateInstruction() {
-      const el   = document.getElementById("home-instruction");
-      const hint = document.getElementById("map-hint");
-      if (!el) return;
+  function setChip(which, label) {
+    const chipId    = which === "origin" ? "chip-origin" : "chip-dest";
+    const clearId   = which === "origin" ? "btn-clear-origin" : "btn-clear-dest";
+    const fieldId   = which === "origin" ? "field-origin" : "field-dest";
+    const chip      = document.getElementById(chipId);
+    const clearBtn  = document.getElementById(clearId);
+    const field     = document.getElementById(fieldId);
+    if (chip) {
+      chip.textContent = label;
+      chip.classList.remove("placeholder-text");
+      chip.setAttribute("aria-label", `${which === "origin" ? "Origen" : "Destino"}: ${label}`);
+    }
+    if (clearBtn) clearBtn.style.display = "flex";
+    if (field) field.classList.add("has-value");
+  }
 
-      if (clickState === "origin") {
-        el.innerHTML = `<span class="hi-dot origin"></span> Toca el mapa para marcar tu <strong>origen</strong>`;
-        if (hint) hint.textContent = "📍 Toca para marcar tu origen";
-      } else if (clickState === "dest") {
-        el.innerHTML = `<span class="hi-dot dest"></span> Ahora toca para marcar tu <strong>destino</strong>`;
-        if (hint) hint.textContent = "🏁 Toca para marcar tu destino";
-      } else {
-        el.innerHTML = `<span class="hi-dot done"></span> ¡Listo! Presiona <strong>Buscar rutas</strong>`;
-        if (hint) { hint.textContent = "✅ Origen y destino marcados"; hint.style.opacity = "0"; }
+  function clearChip(which) {
+    const chipId   = which === "origin" ? "chip-origin" : "chip-dest";
+    const clearId  = which === "origin" ? "btn-clear-origin" : "btn-clear-dest";
+    const fieldId  = which === "origin" ? "field-origin" : "field-dest";
+    const chip     = document.getElementById(chipId);
+    const clearBtn = document.getElementById(clearId);
+    const field    = document.getElementById(fieldId);
+    const placeholder = which === "origin" ? "Toca el mapa o usa tu ubicación" : "Toca el mapa para marcar tu destino";
+    if (chip) {
+      chip.textContent = placeholder;
+      chip.classList.add("placeholder-text");
+      chip.setAttribute("aria-label", which === "origin" ? "Origen no seleccionado" : "Destino no seleccionado");
+    }
+    if (clearBtn) clearBtn.style.display = "none";
+    if (field) field.classList.remove("has-value");
+  }
+
+  /* --- Clic en el mapa --- */
+  async function handleMapClick(lat, lng) {
+    const addr = (typeof reverseGeocode === "function") ? await reverseGeocode(lat, lng) : null;
+    const label = addr || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+    if (clickState === "origin") {
+      if (originMarker) originMarker.remove();
+      originMarker = L.marker([lat, lng], { icon: makePinIcon("#27AE60", "A") })
+        .addTo(map)
+        .bindTooltip(`<strong>Origen:</strong> ${label}`);
+      if (typeof APP !== "undefined") { APP.originLatLng = { lat, lng }; APP.originLabel = label; }
+      setChip("origin", label);
+      clickState = "dest";
+      if (typeof showToast === "function") showToast(`📍 Origen: ${label}`);
+
+    } else if (clickState === "dest") {
+      if (destMarker) destMarker.remove();
+      destMarker = L.marker([lat, lng], { icon: makePinIcon("#FF6B2B", "B") })
+        .addTo(map)
+        .bindTooltip(`<strong>Destino:</strong> ${label}`);
+      if (typeof APP !== "undefined") { APP.destLatLng = { lat, lng }; APP.destLabel = label; }
+      setChip("dest", label);
+      clickState = "done";
+
+      if (typeof APP !== "undefined" && APP.originLatLng) {
+        if (lineDashed) lineDashed.remove();
+        lineDashed = L.polyline(
+          [[APP.originLatLng.lat, APP.originLatLng.lng], [lat, lng]],
+          { color: "#ADE0FF", weight: 2, dashArray: "8 6", opacity: 0.7 }
+        ).addTo(map);
+        map.fitBounds(
+          L.latLngBounds([APP.originLatLng.lat, APP.originLatLng.lng], [lat, lng]),
+          { padding: [60, 60] }
+        );
       }
-    }
-
-    function setChip(which, label) {
-      const el = document.getElementById(which === "origin" ? "chip-origin" : "chip-dest");
-      const clearBtn = document.getElementById(which === "origin" ? "btn-clear-origin" : "btn-clear-dest");
-      if (el) {
-        el.textContent = label;
-        el.classList.remove("placeholder-text");
-      }
-      if (clearBtn) clearBtn.style.display = "flex";
-    }
-
-    function clearChip(which) {
-      const el = document.getElementById(which === "origin" ? "chip-origin" : "chip-dest");
-      const clearBtn = document.getElementById(which === "origin" ? "btn-clear-origin" : "btn-clear-dest");
-      if (el) {
-        el.textContent = which === "origin" ? "Toca el mapa o usa tu ubicación" : "Toca el mapa para marcar destino";
-        el.classList.add("placeholder-text");
-      }
-      if (clearBtn) clearBtn.style.display = "none";
-    }
-
-    function makePinIcon(color, letter) {
-      return L.divIcon({
-        className: "",
-        html: `<div style="position:relative;width:28px;height:38px">
-          <div style="width:28px;height:28px;background:${color};border:3px solid white;
-               border-radius:50%;box-shadow:0 3px 10px rgba(0,0,0,.35);display:flex;
-               align-items:center;justify-content:center;color:white;font-size:13px;font-weight:800">
-            ${letter}
-          </div>
-          <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);
-               width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;
-               border-top:12px solid ${color}"></div>
-        </div>`,
-        iconSize: [28, 38], iconAnchor: [14, 38],
-      });
-    }
-
-    async function handleMapClick(lat, lng) {
-      const addr = (typeof reverseGeocode === "function")
-        ? await reverseGeocode(lat, lng)
-        : null;
-      const label = addr || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-
-      if (clickState === "origin") {
-        if (originMarker) originMarker.remove();
-        originMarker = L.marker([lat, lng], { icon: makePinIcon("#27AE60", "A") })
-          .addTo(map)
-          .bindTooltip(`<strong>Origen:</strong> ${label}`, { permanent: false });
-
-        if (typeof APP !== "undefined") {
-          APP.originLatLng = { lat, lng };
-          APP.originLabel  = label;
-        }
-        setChip("origin", label);
-        clickState = "dest";
-        if (typeof showToast === "function") showToast(`📍 Origen: ${label}`);
-
-      } else if (clickState === "dest") {
-        if (destMarker) destMarker.remove();
-        destMarker = L.marker([lat, lng], { icon: makePinIcon("#FF6B2B", "B") })
-          .addTo(map)
-          .bindTooltip(`<strong>Destino:</strong> ${label}`, { permanent: false });
-
-        if (typeof APP !== "undefined") {
-          APP.destLatLng  = { lat, lng };
-          APP.destLabel   = label;
-        }
-        setChip("dest", label);
-        clickState = "done";
-
-        // Línea punteada
-        if (typeof APP !== "undefined" && APP.originLatLng) {
-          if (lineDashed) lineDashed.remove();
-          lineDashed = L.polyline(
-            [[APP.originLatLng.lat, APP.originLatLng.lng], [lat, lng]],
-            { color: "#888", weight: 2, dashArray: "8 6", opacity: 0.6 }
-          ).addTo(map);
-
-          map.fitBounds(
-            L.latLngBounds([APP.originLatLng.lat, APP.originLatLng.lng], [lat, lng]),
-            { padding: [60, 60] }
-          );
-        }
-
-        const btnSearch = document.getElementById("btn-search-map");
-        if (btnSearch) btnSearch.disabled = false;
-        if (typeof showToast === "function") showToast(`🏁 Destino: ${label}`);
-      }
-
-      updateInstruction();
-    }
-
-    map.on("click", e => handleMapClick(e.latlng.lat, e.latlng.lng));
-
-    // ── Botón: Limpiar ──
-    document.getElementById("btn-reset-map")?.addEventListener("click", () => {
-      if (originMarker) { originMarker.remove(); originMarker = null; }
-      if (destMarker)   { destMarker.remove();   destMarker   = null; }
-      if (lineDashed)   { lineDashed.remove();   lineDashed   = null; }
-      clickState = "origin";
-
-      if (typeof APP !== "undefined") {
-        APP.originLatLng = null;
-        APP.destLatLng   = null;
-        APP.originLabel  = null;
-        APP.destLabel    = null;
-      }
-
-      clearChip("origin");
-      clearChip("dest");
 
       const btnSearch = document.getElementById("btn-search-map");
-      if (btnSearch) btnSearch.disabled = true;
+      if (btnSearch) {
+        btnSearch.disabled = false;
+        btnSearch.setAttribute("aria-disabled", "false");
+      }
+      if (typeof showToast === "function") showToast(`🏁 Destino: ${label}`);
+    }
 
-      map.setView([-0.2201, -78.5123], 13);
-      updateInstruction();
+    updateInstruction();
+  }
 
-      const hint = document.getElementById("map-hint");
-      if (hint) hint.style.opacity = "1";
-    });
+  map.on("click", e => handleMapClick(e.latlng.lat, e.latlng.lng));
 
-    // ── Botón: Mi ubicación (origen) ──
-    document.getElementById("btn-geo-origin")?.addEventListener("click", async function() {
-      this.disabled = true;
-      this.textContent = "⏳ Localizando…";
-      try {
-        const pos = await (typeof getCurrentPosition === "function"
-          ? getCurrentPosition()
-          : new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 })));
+  /* --- Botón: Limpiar todo --- */
+  document.getElementById("btn-reset-map")?.addEventListener("click", () => {
+    if (originMarker) { originMarker.remove(); originMarker = null; }
+    if (destMarker)   { destMarker.remove();   destMarker   = null; }
+    if (lineDashed)   { lineDashed.remove();   lineDashed   = null; }
+    clickState = "origin";
+    if (typeof APP !== "undefined") {
+      APP.originLatLng = null; APP.destLatLng = null;
+      APP.originLabel  = null; APP.destLabel  = null;
+    }
+    clearChip("origin"); clearChip("dest");
+    const btn = document.getElementById("btn-search-map");
+    if (btn) { btn.disabled = true; btn.setAttribute("aria-disabled", "true"); }
+    map.setView([-0.2201, -78.5123], 13);
+    const hint = document.getElementById("map-hint");
+    if (hint) hint.style.opacity = "1";
+    updateInstruction();
+  });
+
+  /* --- Botón: Mi ubicación (origen) --- */
+  document.getElementById("btn-geo-origin")?.addEventListener("click", async function() {
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="btn-spinner"></span> Localizando…`;
+
+    if (!navigator.geolocation) {
+      if (typeof showToast === "function") showToast("❌ Tu navegador no soporta geolocalización");
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <circle cx="10" cy="10" r="3" fill="currentColor"/>
+        <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M10 1v3M10 16v3M1 10h3M16 10h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg> Mi ubicación`;
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async pos => {
         const { latitude: lat, longitude: lng } = pos.coords;
-        map.setView([lat, lng], 15);
+        map.setView([lat, lng], 16);
+        if (clickState !== "origin") {
+          // Si ya hay origen, limpiar y volver al estado origen
+          if (originMarker) { originMarker.remove(); originMarker = null; }
+          if (lineDashed)   { lineDashed.remove();   lineDashed   = null; }
+          clearChip("origin");
+          if (typeof APP !== "undefined") { APP.originLatLng = null; APP.originLabel = null; }
+          clickState = "origin";
+        }
         await handleMapClick(lat, lng);
-      } catch {
-        if (typeof showToast === "function") showToast("❌ No se pudo obtener tu ubicación");
-      } finally {
-        this.disabled = false;
-        this.innerHTML = `<svg width="11" height="11" viewBox="0 0 20 20" fill="none">
+        btn.disabled = false;
+        btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 20 20" fill="none" aria-hidden="true">
           <circle cx="10" cy="10" r="3" fill="currentColor"/>
           <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.8"/>
           <path d="M10 1v3M10 16v3M1 10h3M16 10h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
         </svg> Mi ubicación`;
-      }
-    });
+      },
+      err => {
+        console.warn("Geoloc error:", err.code, err.message);
+        let msg = "❌ No se pudo obtener tu ubicación";
+        if (err.code === 1) msg = "❌ Permiso de ubicación denegado. Revisa la configuración del navegador.";
+        if (err.code === 3) msg = "❌ Tiempo de espera agotado. Intenta de nuevo.";
+        if (typeof showToast === "function") showToast(msg);
+        btn.disabled = false;
+        btn.innerHTML = `<svg width="11" height="11" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <circle cx="10" cy="10" r="3" fill="currentColor"/>
+          <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.8"/>
+          <path d="M10 1v3M10 16v3M1 10h3M16 10h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg> Mi ubicación`;
+      },
+      { timeout: 10000, enableHighAccuracy: true, maximumAge: 30000 }
+    );
+  });
 
-    // ── Botón: Limpiar origen individual ──
-    document.getElementById("btn-clear-origin")?.addEventListener("click", () => {
-      if (originMarker) { originMarker.remove(); originMarker = null; }
-      if (lineDashed)   { lineDashed.remove();   lineDashed   = null; }
-      clearChip("origin");
-      if (typeof APP !== "undefined") { APP.originLatLng = null; APP.originLabel = null; }
-      clickState = "origin";
-      document.getElementById("btn-search-map").disabled = true;
-      updateInstruction();
-    });
-
-    // ── Botón: Limpiar destino individual ──
-    document.getElementById("btn-clear-dest")?.addEventListener("click", () => {
-      if (destMarker) { destMarker.remove(); destMarker = null; }
-      if (lineDashed) { lineDashed.remove(); lineDashed = null; }
-      clearChip("dest");
-      if (typeof APP !== "undefined") { APP.destLatLng = null; APP.destLabel = null; }
-      if (clickState === "done") clickState = "dest";
-      document.getElementById("btn-search-map").disabled = true;
-      updateInstruction();
-      const hint = document.getElementById("map-hint");
-      if (hint) hint.style.opacity = "1";
-    });
-
-    // ── Botón: Buscar rutas ──
-    document.getElementById("btn-search-map")?.addEventListener("click", () => {
-      if (typeof APP === "undefined" || !APP.originLatLng || !APP.destLatLng) {
-        if (typeof showToast === "function") showToast("Marca origen y destino en el mapa primero");
-        return;
-      }
-      const results = (typeof findRoutesByCoords === "function")
-        ? findRoutesByCoords(APP.originLatLng, APP.destLatLng)
-        : [];
-      APP.results = results;
-
-      const entry = {
-        originLatLng: APP.originLatLng,
-        destLatLng:   APP.destLatLng,
-        originLabel:  APP.originLabel || "Origen",
-        destLabel:    APP.destLabel   || "Destino",
-        label:        `${APP.originLabel || "Origen"} → ${APP.destLabel || "Destino"}`,
-        date: new Date().toLocaleDateString("es-EC", {
-          day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
-        }),
-      };
-      APP.history = [entry, ...APP.history.filter(h => h.label !== entry.label)].slice(0, 20);
-      if (typeof saveStorage === "function") saveStorage();
-
-      if (typeof renderResults === "function") renderResults();
-      if (typeof showScreen === "function") showScreen("results");
-    });
-
-    // ── Reubicar mapa cuando se vuelve a home ──
-    document.getElementById("nav-home")?.addEventListener("click", () => {
-      setTimeout(() => map?.invalidateSize(), 200);
-    });
-
+  /* --- Limpiar origen individual --- */
+  document.getElementById("btn-clear-origin")?.addEventListener("click", () => {
+    if (originMarker) { originMarker.remove(); originMarker = null; }
+    if (lineDashed)   { lineDashed.remove();   lineDashed   = null; }
+    clearChip("origin");
+    if (typeof APP !== "undefined") { APP.originLatLng = null; APP.originLabel = null; }
+    clickState = "origin";
+    const btn = document.getElementById("btn-search-map");
+    if (btn) { btn.disabled = true; btn.setAttribute("aria-disabled", "true"); }
+    const hint = document.getElementById("map-hint");
+    if (hint) hint.style.opacity = "1";
     updateInstruction();
+  });
+
+  /* --- Limpiar destino individual --- */
+  document.getElementById("btn-clear-dest")?.addEventListener("click", () => {
+    if (destMarker) { destMarker.remove(); destMarker = null; }
+    if (lineDashed) { lineDashed.remove(); lineDashed = null; }
+    clearChip("dest");
+    if (typeof APP !== "undefined") { APP.destLatLng = null; APP.destLabel = null; }
+    if (clickState === "done") clickState = "dest";
+    const btn = document.getElementById("btn-search-map");
+    if (btn) { btn.disabled = true; btn.setAttribute("aria-disabled", "true"); }
+    const hint = document.getElementById("map-hint");
+    if (hint) hint.style.opacity = "1";
+    updateInstruction();
+  });
+
+  /* --- Buscar rutas (con carga perezosa) --- */
+  document.getElementById("btn-search-map")?.addEventListener("click", async function() {
+    if (typeof APP === "undefined" || !APP.originLatLng || !APP.destLatLng) {
+      if (typeof showToast === "function") showToast("⚠️ Marca origen y destino en el mapa primero");
+      return;
+    }
+
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = `<span class="btn-spinner"></span> Cargando datos…`;
+
+    // CARGA PEREZOSA: cargar datos de Supabase solo ahora
+    const ok = await ensureDataLoaded();
+
+    if (!ok) {
+      if (typeof showToast === "function") showToast("⚠️ Usando datos de demostración");
+    }
+
+    const results = (typeof findRoutesByCoords === "function")
+      ? findRoutesByCoords(APP.originLatLng, APP.destLatLng)
+      : [];
+    APP.results = results;
+
+    const entry = {
+      originLatLng: APP.originLatLng,
+      destLatLng:   APP.destLatLng,
+      originLabel:  APP.originLabel || "Origen",
+      destLabel:    APP.destLabel   || "Destino",
+      label:        `${APP.originLabel || "Origen"} → ${APP.destLabel || "Destino"}`,
+      date: new Date().toLocaleDateString("es-EC", {
+        day:"2-digit", month:"short", hour:"2-digit", minute:"2-digit"
+      }),
+    };
+    APP.history = [entry, ...APP.history.filter(h => h.label !== entry.label)].slice(0, 20);
+    if (typeof saveStorage === "function") saveStorage();
+
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <circle cx="9" cy="9" r="6" stroke="white" stroke-width="1.8"/>
+      <path d="M13.5 13.5L17 17" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+    </svg> Buscar rutas`;
+
+    if (typeof renderResults === "function") renderResults();
+    if (typeof showScreen === "function") showScreen("results");
+  });
+
+  /* --- Live card rutas populares --- */
+  window.initLiveCard = function() {
+    const container = document.getElementById("lc-routes");
+    if (!container) return;
+    const trips = [
+      { label: "Norte → Centro", from: null, to: null },
+      { label: "Centro → Sur",   from: null, to: null },
+      { label: "Carcelén → Marín", from: null, to: null },
+      { label: "La Carolina → Quitumbe", from: null, to: null },
+    ];
+    container.innerHTML = "";
+    trips.forEach(trip => {
+      const div = document.createElement("div");
+      div.className = "hlc-route";
+      div.setAttribute("role", "listitem");
+      div.innerHTML = `
+        <div class="hlc-route-path">${trip.label}</div>
+        <div class="hlc-route-meta">Ver rutas disponibles →</div>`;
+      container.appendChild(div);
+    });
   };
 
-})();
-</script>
+  /* --- Re-invalidar cuando se vuelve a home --- */
+  document.getElementById("nav-home")?.addEventListener("click", () => {
+    setTimeout(() => map?.invalidateSize(), 200);
+  });
 
+  updateInstruction();
+};
+</script>
 </body>
 </html>
