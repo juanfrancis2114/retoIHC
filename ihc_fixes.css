@@ -1,0 +1,285 @@
+/* ══════════════════════════════════════
+   BusQuito – ihc_fixes.css
+   Añadir al FINAL de styles.css
+   Fixes: chips activos, accesibilidad WCAG 2.2,
+   spinner de carga, principios IHC
+   ══════════════════════════════════════ */
+
+/* ══════════════════════════════════
+   1. CHIPS ACTIVOS – texto blanco brillante
+   ══════════════════════════════════ */
+.hmp-field-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255,255,255,.35);   /* placeholder: apagado */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 80px;
+  transition: color .25s ease, font-weight .2s ease;
+  min-height: 1.4em;
+}
+
+/* Cuando tiene valor real: blanco completo y bold */
+.hmp-field-value:not(.placeholder-text) {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  text-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+
+/* El campo completo se resalta cuando tiene valor */
+.hmp-field.has-value {
+  background: rgba(255,255,255,.08) !important;
+  border-left: 3px solid transparent;
+}
+#field-origin.has-value { border-left-color: #27AE60; }
+#field-dest.has-value   { border-left-color: #FF6B2B; }
+
+/* ══════════════════════════════════
+   2. SPINNER para botón de búsqueda
+   ══════════════════════════════════ */
+.btn-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: btn-spin .7s linear infinite;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+@keyframes btn-spin { to { transform: rotate(360deg); } }
+
+/* ══════════════════════════════════
+   3. WCAG 2.2 – ACCESIBILIDAD
+   ══════════════════════════════════ */
+
+/* 3.1 Focus visible mejorado (WCAG 2.4.11 – Focus Appearance) */
+:focus-visible {
+  outline: 3px solid #FF6B2B !important;
+  outline-offset: 3px !important;
+  border-radius: 4px !important;
+}
+
+/* Focus en elementos sobre fondo oscuro */
+.hero-map-section :focus-visible,
+.hmp-fields :focus-visible,
+.hmp-actions :focus-visible {
+  outline-color: #ADE0FF !important;
+  box-shadow: 0 0 0 3px rgba(173,224,255,.35) !important;
+}
+
+/* 3.2 Contraste mínimo en textos secundarios (WCAG 1.4.3) */
+.gray-text, .rc-empresa, .rc-meta, .di-label,
+.rs-sub, .hist-date, .fav-meta, .lc-footer,
+.hlc-route-meta {
+  color: #5a6a80 !important; /* contraste > 4.5:1 sobre blanco */
+}
+
+/* 3.3 Tamaño mínimo de área de toque (WCAG 2.5.8 – 24x24px mínimo) */
+.field-clear-btn,
+.field-geo-btn,
+.a11y-btn,
+.nav-btn,
+.back-btn,
+.filter-btn,
+.fav-del {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Excepción: botones pequeños con padding compensatorio */
+.field-clear-btn {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 6px;
+}
+
+/* 3.4 Skip link (saltar al contenido) – WCAG 2.4.1 */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 8px;
+  background: #FF6B2B;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 0 0 8px 8px;
+  font-weight: 700;
+  font-size: .9rem;
+  z-index: 10000;
+  text-decoration: none;
+  transition: top .2s;
+}
+.skip-link:focus {
+  top: 0;
+}
+
+/* 3.5 Indicador de estado en campos (WCAG 1.3.1) */
+.hmp-field[aria-expanded="true"] {
+  background: rgba(255,255,255,.1);
+}
+
+/* ══════════════════════════════════
+   4. PRINCIPIOS IHC
+   ══════════════════════════════════ */
+
+/* 4.1 Retroalimentación visual al buscar (Visibilidad del estado) */
+#btn-search-map:not(:disabled) {
+  position: relative;
+  overflow: hidden;
+}
+#btn-search-map:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.15), transparent);
+  transform: translateX(-100%);
+  transition: transform .4s;
+}
+#btn-search-map:not(:disabled):hover::after {
+  transform: translateX(100%);
+}
+
+/* 4.2 Jerarquía visual – título principal */
+.hero-map-title h1 {
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  color: #fff;
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -.4px;
+  margin-top: 8px;
+}
+
+/* 4.3 Affordance – campos clickeables parecen interactivos */
+.hmp-field {
+  cursor: default;
+  transition: background .18s ease;
+}
+.hmp-field:hover {
+  background: rgba(255,255,255,.07) !important;
+}
+
+/* 4.4 Consistencia – todos los botones de acción con mismo estilo base */
+.btn-reset-home,
+.btn-search-home,
+.field-geo-btn {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  border-radius: 12px;
+  transition: all .2s ease;
+  cursor: pointer;
+}
+
+/* 4.5 Espaciado y ritmo visual */
+.hero-map-left {
+  gap: 16px !important;
+}
+
+.hmp-fields + .hmp-actions {
+  margin-top: 4px;
+}
+
+/* 4.6 Estado de error en campos (Prevención de errores – Nielsen) */
+.hmp-field.field-error {
+  background: rgba(229,57,53,.12) !important;
+  border-left: 3px solid #E53935 !important;
+}
+.hmp-field.field-error .hmp-field-value {
+  color: rgba(255,150,150,.9) !important;
+}
+
+/* 4.7 Mensaje de ayuda contextual debajo de los campos */
+.hmp-fields-hint {
+  font-size: .75rem;
+  color: rgba(255,255,255,.45);
+  text-align: center;
+  margin-top: -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+/* ══════════════════════════════════
+   5. RESULTADO CARDS – mejoradas
+   ══════════════════════════════════ */
+
+/* Indicador de "mejor opción" */
+.result-card:first-child {
+  border: 2px solid rgba(39,174,96,.35) !important;
+  position: relative;
+}
+.result-card:first-child::before {
+  content: '⭐ Mejor opción';
+  position: absolute;
+  top: -1px;
+  right: 16px;
+  background: #27AE60;
+  color: white;
+  font-size: .68rem;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 0 0 8px 8px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+/* Distancia a pie más visible */
+.rc-walk-info {
+  font-size: .78rem;
+  color: #4a7a55;
+  background: rgba(39,174,96,.08);
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* ══════════════════════════════════
+   6. RESPONSIVE WCAG – móvil
+   ══════════════════════════════════ */
+@media (max-width: 640px) {
+  /* Área de toque mínima en móvil */
+  .nav-btn { 
+    min-height: 48px;
+    padding: 0 12px;
+  }
+  
+  .btn-search-home {
+    padding: 14px 20px;
+    font-size: 1rem;
+  }
+
+  /* Texto legible en móvil (WCAG 1.4.4) */
+  .hmp-field-value {
+    font-size: 0.95rem;
+  }
+}
+
+/* ══════════════════════════════════
+   7. MODO ALTO CONTRASTE MEJORADO
+   ══════════════════════════════════ */
+body.high-contrast .hmp-field-value:not(.placeholder-text) {
+  color: #ffff00 !important;
+  text-shadow: none;
+}
+
+body.high-contrast .result-card {
+  border: 2px solid #000 !important;
+}
+
+body.high-contrast .rc-detail-btn {
+  background: #000 !important;
+  color: #fff !important;
+  border: 2px solid #fff !important;
+}
+
+body.high-contrast :focus-visible {
+  outline: 4px solid #ffff00 !important;
+}
